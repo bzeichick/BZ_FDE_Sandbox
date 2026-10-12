@@ -51,6 +51,7 @@ TempMode = Literal["frozen", "refrigerated"]
 Flag = Literal[
     "TEMP_STANDARD_ASSUMED",  # order said frozen/refrigerated but no number; company standard range used — confirm
     "RATE_LOOKUP_NEEDED",     # no rate in the order; needs a rate lookup or a quote
+    "DELIVERY_TO_BE_SCHEDULED",  # no delivery date given; the company schedules it and advises the customer
 ]
 
 
@@ -104,7 +105,14 @@ class Response(BaseModel):
     delivery_date: date | None = Field(
         default=None,
         description="A specific delivery day, or the deadline for 'on or before' wording. "
-                    "Empty for vague windows like 'week of 10/5' (ask instead).",
+                    "Empty for vague windows like 'week of 10/5' (kept in delivery_window instead). "
+                    "Empty with the DELIVERY_TO_BE_SCHEDULED flag when the order gives no delivery date at all.",
+    )
+
+    delivery_window: str | None = Field(
+        default=None,
+        description="The customer's delivery wording as written when it is not a single date or "
+                    "deadline, e.g. 'week of 10/5'. The company schedules within it.",
     )
 
     # --- Temperature ----------------------------------------------------------
