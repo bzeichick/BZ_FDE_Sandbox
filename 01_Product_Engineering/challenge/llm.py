@@ -11,7 +11,7 @@ That property matters more than it looks like it does right now -- see the
 import json
 import os
 
-from litellm import completion
+from litellm import completion, token_counter
 
 # LiteLLM picks the provider from the model string:
 #   "gpt-4.1-mini"                    -> OpenAI
@@ -27,6 +27,19 @@ SYSTEM_PROMPT = os.getenv(
     "SYSTEM_PROMPT",
     "You are a helpful assistant. Be concise and concrete.",
 )
+
+
+def count_prompt_tokens(message: str, history: list[dict] | None = None) -> int:
+    """Count how many tokens the next request would send, before sending it.
+
+    Builds the same message list `stream_reply` would send, so the count
+    reflects what actually goes over the wire -- not just the new message.
+    """
+    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
+    messages.extend(history or [])
+    messages.append({"role": "user", "content": message})
+
+    return token_counter(model=MODEL, messages=messages)
 
 
 def stream_reply(message: str, history: list[dict] | None = None):

@@ -319,7 +319,7 @@ def _(mo):
     everything connected, so the network is fine. In one to three sentences,
     explain what the issuer column predicts that the status column cannot.
 
-    **Answer:**
+    **Answer:** The status column only shows that something answered. The issuer column shows who answered. If the certificate was issued by an unexpected authority, such as a company proxy, the traffic is being intercepted. Tools that don’t trust that proxy will fail even though the probe said “connected.”
     """)
     return
 
@@ -333,7 +333,8 @@ def _(mo):
     cell. Explain how both of those can be true at once, and what that tells you
     about what a byte-comparison gate is actually able to promise.
 
-    **Answer:**
+    **Answer:** make check only compares the notebook file to a saved copy. It doesn’t check whether the code runs. A notebook that crashes on cell 3 can still match its saved copy byte for byte, especially if the saved copy already includes the crash.
+    So a byte-comparison gate can only promise that nothing changed, not that anything works. To catch the crash, you need a check that actually runs the notebook and fails on errors.
     """)
     return
 
@@ -518,7 +519,7 @@ def _(mo):
     costs one line in `.env` here — and what specifically you would have had to
     rewrite if the code had called a vendor SDK directly.
 
-    **Answer:**
+    **Answer:**The code sends requests to whatever address is set in .env, not to a hardcoded provider. Switching to the internal gateway is just changing that one line. If the code had called a vendor SDK directly, the vendor’s address, login method, and request and response formats would be built into every call, so you’d have to rewrite each place the code creates a client, sends a request, or reads a response.
     """)
     return
 
@@ -533,7 +534,7 @@ def _(mo):
     that specific outcome tell you about the rule you wrote — and why is
     `/clear` a better test than simply continuing the conversation?
 
-    **Answer:**
+    **Answer:** It tells you the rule never worked on its own. During that conversation, the agent was following what it saw happen in the chat (you discussing or adding the rule), not the file. After /clear, the chat history is gone and CLAUDE.md is loaded fresh, so the old behaviour coming back means the file itself isn’t doing the job.
     """)
     return
 
