@@ -881,45 +881,58 @@ demo.
 Run each prompt through your app. Name the capability it tests.
 
 **1.** *Explain object-oriented programming in simple terms to a complete beginner.*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** tone **Response:** explained the concepts without using too much jargon and used real-world examples of pets to help solidify abstract concepts
 
 **2.** *Read a paragraph of your choosing and summarize the key points.*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** factual grounding **Response:** In the summary it didn't include anything that wasn't in the paragraph, and accurately distilled a summary of the paragraph breaking it into key points
 
 **3.** *Write a short, imaginative story (100–150 words) about a robot finding friendship in an unexpected place.*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** instruction-following **Response:** Accurately created a story between 100-150 words, was creative, and is about a new friendship for the robot
 
 **4.** *If a store sells apples in packs of 4 and oranges in packs of 3, how many packs of each do I need to get exactly 12 apples and 9 oranges?*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** reasoning **Response:** Correct answer and showed the work at how it derived the answers
 
 **5.** *Rewrite a paragraph of your choosing in a professional, formal tone.*
-**Aspect tested:** <!-- your answer --> **Response:** <!-- your answer -->
+**Aspect tested:** format adherence **Response:** The formal paragraph itself was good, but it invented its own “casual” paragraph first and added notes on why it changed things, so the actual rewrite would have to be stripped out of the reply.
 
 **❓ Are the answers correct and useful?**
-<!-- your answer -->
+All correct and useful; the one miss was #5, which wrapped the rewrite in extra text.
 
 ### Pass 2 — Your actual use case
 
 Test it with prompts from the problem you care about — your five golden
 examples from Step 7 are the obvious first three.
 
-**Prompt:** <!-- --> **Result:** <!-- -->
-**Prompt:** <!-- --> **Result:** <!-- -->
-**Prompt:** <!-- --> **Result:** <!-- -->
+**Prompt:** C10 — Sunridge Raw → Stockton tender (golden #1) **Result:** Format adherence + factual grounding: matched the golden field for field — pickup 9/25, frozen -10°F, 3/320/6,000, rate and delivery flagged, no questions.
+
+**Prompt:** C8 — quote request, pickup "ColdVault" (golden #3) **Result:** Factual grounding: missed "Vernon, CA" in the subject line, so origin was just "ColdVault" and the address question asked for a city the order already gave. Questions on consignee and cases were right.
+
+**Prompt:** C3 — Harbor Lane PO + freight confirmation, run twice (golden #6) **Result:** Consistency: run 1 matched the golden including the $2,840 rate; run 2 (same input, in Docker) left the rate empty and flagged a rate lookup. Same order, different answer.
 
 **❓ Does it behave the way you expected? Why or why not?**
-<!-- your answer -->
+Mostly. 4 of 6 orders matched their goldens, and both declines were correct. It doesn’t miss on reasoning but on reading details (a city in a subject line, a consignee question), and the same order can give different answers on different runs because the model’s temperature can’t be fixed.
 
 ### Pass 3 — Where it falls down
 
 Try things it cannot do yet — real-time data, memory across sessions, access to
 your systems.
 
-**Prompt:** <!-- --> **Result:** <!-- -->
-**Prompt:** <!-- --> **Result:** <!-- -->
+**Prompt:** Only the customer's follow-up reply, "PO# S61427" plus signature, with no order details (order intake). **Result:** Handling of missing information: correctly flagged needs_human ("only provides a PO reference number"), but still listed 7 questions for the customer and two flags. With no memory of earlier messages it can't tie a follow-up to its order, and asking the customer to resend everything would be wrong; questions should be suppressed when the text isn't an order.
+
+**Prompt:** "Has the Harbor Lane shipment to Chesapeake delivered yet?" (general chat). **Result:** Refusal behaviour: said it has no access to tracking or company records and did not invent a status. Correct, and it confirms there is no live data from the TMS or carriers.
+
+**Prompt:** Two orders (C10 and C11) pasted together (order intake). **Result:** Instruction-following: correctly flagged needs_human for two separate shipments, but the fields shown are a blend — both POs in References, the second order's pallets, cases, weight and destination. Someone skimming could enter a half-right shipment; when it's not a single order the fields should be left out or split per order.
 
 **❓ What are the real limitations of this application?**
-<!-- your answer -->
+- No memory across messages: it can't tie a follow-up email to the order it belongs to.
+- No access to the TMS, carrier tracking or customer records — no live status, and no lookups (e.g. C8's facility address).
+- One order per request; several orders are flagged but the displayed fields blend them.
+- When the text isn't an order, it still generates customer questions that shouldn't be sent.
+- Answers vary between runs on the same input (C3's rate), because Sonnet 5's temperature can't be fixed.
+- Misses details outside the body, like the city in a subject line (C8).
+- No PDF upload: attachments must be converted to text and pasted; scanned images can't be read at all.
+- Nowhere to put pre-dispatch issues: accessorial price requests, cargo value over liability, customer terms (golden #6).
+- 5–18 seconds per order.
 
 ### ✅ Deliverables
 
@@ -930,6 +943,8 @@ your systems.
    get different wording on two runs of the same prompt and judge both "fine" —
    name one thing you would have to add before the result could be compared
    across two versions of your application.
+   - A vibe check finds problems but can't prove the app works: C3 passed on one run and failed on the next with identical input, so a single good run proves little. 
+   Before comparing two versions I'd run every golden several times against the hand-written expected outputs and report a pass rate per field, so "better" is a number rather than an impression.
 
 > Keep that list. Most of the next six weeks are about dismantling it: retrieval
 > for the knowledge gaps, evals so you know whether any of it worked, tools for
