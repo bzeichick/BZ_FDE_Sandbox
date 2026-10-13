@@ -614,9 +614,19 @@ Hold the thought — Step 10 is about to make it concrete.
    `localhost:7860`.
 2. **One paragraph** naming the CDN dependency and what you would do about it on
    a network that blocks it.
+      - The page loads `@gradio/client` from a public CDN at runtime in the user's browser.
+      On a network that blocks external CDNs the page would load but do nothing silently.
+      The "Read order" button would never reach the API. For my case the CDN is reachable,
+      and trial users are on an ordinary office connection so it's low risk right now.
+      However, the deployment target is a server I run so the fix is in my hands, downloading the 
+      library at build time and serving it from the app itself, so the only host the browser needs is our own server.
 3. **One or two sentences** on what a container image captures that a virtual
    environment does not — and why that difference is what makes the image the
    thing you hand to a platform team.
+      - A container image captures the OS, Python (including version), packages pinned by the lock file and the app code.
+      A virtual environment captures the Python packages but depends on the machine's own Python version, operating system, and system libraries.
+      A container image is what you hand to the platform team because the team deploys one artifact rather than having to rebuild the environment by hand.
+      During this exercise my `.venv` broke when it moved between machines and had to be rebuilt, whereas an image wouldn't have.
 
 ---
 
