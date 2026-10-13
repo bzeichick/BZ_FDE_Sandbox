@@ -90,4 +90,8 @@ def complete(message: str, system: str, history: list[dict] | None = None) -> st
     """
     response = completion(model=MODEL, messages=_build_messages(message, history, system),
                           temperature=0, drop_params=True, **_provider_kwargs())
+    # Print what each call actually used, so cost per order is measured, not guessed (Step 13).
+    usage = getattr(response, "usage", None)
+    if usage:
+        print(f"[tokens] model={MODEL} in={usage.prompt_tokens} out={usage.completion_tokens}", flush=True)
     return response.choices[0].message.content or ""

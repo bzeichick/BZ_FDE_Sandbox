@@ -1055,6 +1055,24 @@ build against it — measuring it afterwards is a different, weaker thing.
 4. **Your repo link posted in [our community on Maven](https://bit.ly/fde1-maven-community)**,
    and comments on at least two other students' submissions after the deadline.
 
+## Bring it to work
+
+**Napkin math**
+
+- Cost per call = 5,200 / 1M × $2 + 1,410 / 1M × $10 ≈ **$0.025** — tokens **measured** (two real orders: 4,821/1,436 and 5,582/1,387 in/out); price **looked up** (Claude Sonnet 5: $2 / $10 per million).
+- Model per year = $0.025 × 7 orders/day × 250 days ≈ **$44** — volume **looked up** (~145 orders/month in the August TMS report).
+- Human per year = 5 min / 60 × $32/hr × 7 × 250 ≈ **$4,667** — 5 minutes per order is an **estimate, to be measured**; $32/hr **looked up** ($25 pay × ~1.3 loaded). Two of the four people entering orders are co-founders, so this is a floor.
+- Ratio ≈ **107×** — comfortable. Real savings are manual time minus checking time, but even 2 minutes saved per order is ~40×.
+- What they'd expect it to cost: not yet asked (follow-up with the co-founder).
+
+**Latency:** p95 target under 15 seconds; today's runs took 5–18 s. Latency (and trust in consistent answers) is far more likely to stop this being used than cost.
+
+**What I would swap to run this at work**
+
+- **Data:** the six goldens stand in for real orders from the shared orders inbox and the website form, plus the customer and facility records in the TMS that the app can't see yet.
+- **Model / endpoint:** no internal LLM gateway exists, so it stays on the Anthropic API under my consulting account — same price as above. If the owners want customer data kept within one provider, Claude through AWS Bedrock on the same AWS account is the swap.
+- **Access / approval:** the owners' OK to send real customer orders to an outside model; recovering the Microsoft 365 admin for single sign-on; and, before it ever writes into the TMS, the TMS vendor's approval for production web-service access.
+
 ---
 
 ## What this challenge deposits for later
