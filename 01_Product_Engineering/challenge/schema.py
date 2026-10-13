@@ -28,6 +28,7 @@ class Request(BaseModel):
 
     # Required: there is nothing to do without the order itself.
     order_text: str = Field(
+        min_length=1,
         description="The full text of ONE order: the email body, with any attached "
                     "PDFs (PO, freight confirmation) converted to text and pasted below it."
     )
@@ -150,12 +151,80 @@ class Response(BaseModel):
 
 
 # ---------------------------------------------------------------------------
-# The whole product, as one function signature
+# The whole product, as one function
 # ---------------------------------------------------------------------------
+
+# The rules from the charter's In -> Out row, written for the model. When the
+# charter changes, this text changes with it. Field meanings come from the
+# Field(description=...) text above, which is sent along as a JSON schema.
+INTAKE_RULES = """You read ONE customer shipping order for a cold-chain freight brokerage and fill in
+the shipment fields for the order desk to check before entering it into the TMS.
+
+Return ONLY a JSON object matching the JSON schema below. No prose, no code fences.
+
+Rules:
+- Use only what the order text says (body, subject line, attachments). Never fill a value
+  from what a customer usually does, and never invent one. Empty (null) beats a guess.
+- Required fields: refs, origin, destination, pickup_date, temperature (temp_mode), pallets,
+  cases, weight_lb. When one is missing or only partly given, leave the missing part empty and
+  add a question for the customer with field set to that field's name. Examples: no case count
+  -> field "cases"; origin named only as a facility with no street address -> field "origin";
+  no consignee name -> field "destination"; no temperature at all -> field "temp_mode".
+- refs: every PO, SO and freight PO number in the order, as written, without labels.
+- Dates are YYYY-MM-DD. Resolve relative dates ("Friday") from received_date. If several pickup
+  dates are offered, use the earliest. "As early as <day>" is the pickup date.
+- Delivery: a specific date is delivery_date. A deadline ("before or on 10/7") is delivery_date.
+  A vague window ("week of 10/5") goes in delivery_window as written, delivery_date stays empty,
+  and add flag DELIVERY_TO_BE_SCHEDULED. No delivery date at all: leave both empty and add
+  DELIVERY_TO_BE_SCHEDULED. Never ask the customer about delivery.
+- Temperature: "-10" or "-10F" with frozen means temp_max_f -10. If the order says frozen or
+  refrigerated but gives no number, use the company standard (frozen: temp_max_f 0;
+  refrigerated: temp_max_f 38) and add flag TEMP_STANDARD_ASSUMED. If neither mode nor number
+  is stated, leave both empty and ask.
+- Weight: when both gross and net weight are given, use the gross weight (with pallets).
+- Rate: a rate stated anywhere in the thread (a quoted rate, a PO price) goes in rate_usd. If no
+  rate is stated, leave it empty and add flag RATE_LOOKUP_NEEDED. Never ask the customer for a rate.
+- Quote requests are treated as orders: fill the fields the same way.
+- needs_human is true only when (a) the text is not a single new order -- for example the latest
+  message says the shipment was already picked up or delivered, or it covers several shipments --
+  or (b) the origin or destination cannot be determined at all. Even then, fill in everything the
+  order does state and add the questions. Give needs_human_reason in one short sentence.
+
+JSON schema:
+"""
+
 
 def solve(request: Request) -> Response:
     """Read one customer order and return its shipment fields for a person to check.
 
-    Built in Step 8. Until then it deliberately does nothing.
+    A fixed pipeline (see use_case/decisions.md): one model call, check the reply
+    against Response, retry once with the error if it doesn't fit, and hand it to a
+    person if it still doesn't. It never returns something that fails the contract.
     """
-    raise NotImplementedError("implement against this signature")
+    import json
+
+    from pydantic import ValidationError
+
+    # Imported here, not at the top, so `import schema` stays light: Week 2's data
+    # generation needs these types without loading the model client.
+    from llm import complete
+
+    system = INTAKE_RULES + json.dumps(Response.model_json_schema())
+    message = f"received_date: {request.received_date.isoformat()}\n\nORDER:\n{request.order_text}"
+
+    last_error = None
+    for attempt in range(2):
+        if last_error:
+            message += f"\n\nYour previous answer did not match the schema: {last_error}\nReturn corrected JSON only."
+        reply = complete(message, system=system)
+        # Models sometimes wrap JSON in ``` fences or add a sentence; keep only the {...} part.
+        text = reply[reply.find("{"): reply.rfind("}") + 1]
+        try:
+            return Response.model_validate_json(text)
+        except ValidationError as error:
+            last_error = str(error)[:1500]
+
+    return Response(
+        needs_human=True,
+        needs_human_reason="Couldn't read this order reliably; please enter it by hand.",
+    )

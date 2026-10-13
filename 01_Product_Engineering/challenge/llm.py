@@ -29,17 +29,36 @@ SYSTEM_PROMPT = os.getenv(
 )
 
 
+def _build_messages(message: str, history: list[dict] | None = None,
+                    system: str | None = None) -> list[dict]:
+    """The exact message list sent to the model: system prompt, past turns, new message.
+
+    Shared by every function below, so the token count, the chat, and the
+    order-intake call can never drift apart on what actually goes over the wire.
+    """
+    messages = [{"role": "system", "content": system or SYSTEM_PROMPT}]
+    messages.extend(history or [])
+    messages.append({"role": "user", "content": message})
+    return messages
+
+
+def _provider_kwargs() -> dict:
+    """Optional settings for gateways and self-hosted models. Empty for plain OpenAI/Anthropic."""
+    kwargs = {}
+    if API_BASE:
+        kwargs["api_base"] = API_BASE
+    if EXTRA_HEADERS:
+        kwargs["extra_headers"] = EXTRA_HEADERS
+    return kwargs
+
+
 def count_prompt_tokens(message: str, history: list[dict] | None = None) -> int:
     """Count how many tokens the next request would send, before sending it.
 
     Builds the same message list `stream_reply` would send, so the count
     reflects what actually goes over the wire -- not just the new message.
     """
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(history or [])
-    messages.append({"role": "user", "content": message})
-
-    return token_counter(model=MODEL, messages=messages)
+    return token_counter(model=MODEL, messages=_build_messages(message, history))
 
 
 def stream_reply(message: str, history: list[dict] | None = None):
@@ -49,19 +68,26 @@ def stream_reply(message: str, history: list[dict] | None = None):
     full message list on every turn -- the model is stateless, so the
     conversation only exists because we keep sending it.
     """
-    messages = [{"role": "system", "content": SYSTEM_PROMPT}]
-    messages.extend(history or [])
-    messages.append({"role": "user", "content": message})
-
-    kwargs = {"model": MODEL, "messages": messages, "stream": True}
-    if API_BASE:
-        kwargs["api_base"] = API_BASE
-    if EXTRA_HEADERS:
-        kwargs["extra_headers"] = EXTRA_HEADERS
-
     reply = ""
-    for chunk in completion(**kwargs):
+    for chunk in completion(model=MODEL, messages=_build_messages(message, history),
+                            stream=True, **_provider_kwargs()):
         piece = chunk.choices[0].delta.content
         if piece:
             reply += piece
             yield reply
+
+
+def complete(message: str, system: str, history: list[dict] | None = None) -> str:
+    """Return the model's whole reply at once (no streaming).
+
+    For structured answers like the order-intake JSON: half a JSON object is
+    useless to the caller, so there is nothing to gain from streaming it.
+    temperature=0 makes the same order give the same answer as often as possible,
+    which is what lets us compare runs against the goldens. Some models (Claude
+    Sonnet 5, for one) only accept their default temperature; drop_params=True tells
+    LiteLLM to quietly leave out any setting the chosen model doesn't support,
+    instead of failing the whole call.
+    """
+    response = completion(model=MODEL, messages=_build_messages(message, history, system),
+                          temperature=0, drop_params=True, **_provider_kwargs())
+    return response.choices[0].message.content or ""

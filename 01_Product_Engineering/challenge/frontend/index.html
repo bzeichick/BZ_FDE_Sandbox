@@ -3,94 +3,223 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <!-- Rename this. It is your app. -->
-    <title>Your AI Application</title>
+    <title>ColdLade Order Intake</title>
     <style>
-      body {
-        font-family: system-ui, sans-serif;
-        max-width: 44rem;
-        margin: 2rem auto;
-        padding: 0 1rem;
-        line-height: 1.5;
+      :root {
+        --ink: #1d2733; --muted: #5d6b7a; --line: #d8dee5; --bg: #f6f8fa; --card: #fff;
+        --accent: #0f6c8a; --warn-bg: #fff4e5; --warn-line: #f0a33a;
+        --stop-bg: #fdecec; --stop-line: #d64545; --empty: #fff8d6;
       }
-      #log {
-        border: 1px solid #ccc;
-        border-radius: 6px;
-        padding: 1rem;
-        min-height: 20rem;
-        margin-bottom: 1rem;
-        white-space: pre-wrap;
-        overflow-y: auto;
-      }
-      .turn { margin-bottom: 1rem; }
-      .who { font-weight: 600; }
-      form { display: flex; gap: 0.5rem; }
-      input { flex: 1; padding: 0.5rem; font: inherit; }
-      button { padding: 0.5rem 1rem; font: inherit; }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, sans-serif; color: var(--ink); background: var(--bg); line-height: 1.45; }
+      header { background: var(--ink); color: #fff; padding: 0.9rem 1rem; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
+      header h1 { margin: 0; font-size: 1.15rem; }
+      header small { color: #b9c4cf; }
+      main { max-width: 72rem; margin: 1.25rem auto; padding: 0 1rem; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; }
+      @media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+      section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; }
+      h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+      label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+      textarea { width: 100%; min-height: 22rem; font: 0.85rem/1.4 ui-monospace, monospace; padding: 0.6rem; border: 1px solid var(--line); border-radius: 6px; resize: vertical; }
+      .row { display: flex; gap: 0.75rem; align-items: end; margin-top: 0.75rem; flex-wrap: wrap; }
+      input[type=date] { padding: 0.45rem; font: inherit; border: 1px solid var(--line); border-radius: 6px; }
+      button { padding: 0.55rem 1.1rem; font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 6px; cursor: pointer; }
+      button:disabled { opacity: 0.6; cursor: progress; }
+      .hint { color: var(--muted); font-size: 0.85rem; }
+      .banner { padding: 0.7rem 0.9rem; border-radius: 6px; margin-bottom: 0.9rem; border-left: 4px solid; }
+      .stop { background: var(--stop-bg); border-color: var(--stop-line); }
+      .ok { background: #eaf6ee; border-color: #3a9a5b; }
+      .error { background: var(--stop-bg); border-color: var(--stop-line); }
+      table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+      th { text-align: left; color: var(--muted); font-weight: 500; width: 9.5rem; vertical-align: top; padding: 0.35rem 0.5rem 0.35rem 0; }
+      td { padding: 0.35rem 0.5rem; border-bottom: 1px solid var(--line); }
+      td.empty { background: var(--empty); color: var(--muted); font-style: italic; }
+      .tags { display: flex; gap: 0.4rem; flex-wrap: wrap; margin: 0.9rem 0; }
+      .tag { font-size: 0.75rem; font-weight: 600; padding: 0.15rem 0.5rem; border-radius: 999px; background: var(--warn-bg); border: 1px solid var(--warn-line); }
+      ol.questions { padding-left: 1.2rem; margin: 0.25rem 0 0; }
+      ol.questions li { margin-bottom: 0.35rem; }
+      ol.questions .field { font-size: 0.75rem; color: var(--muted); }
+      details { max-width: 72rem; margin: 0 auto 2rem; padding: 0 1rem; }
+      summary { cursor: pointer; color: var(--muted); }
+      #log { background: var(--card); border: 1px solid var(--line); border-radius: 6px; padding: 0.75rem; min-height: 8rem; margin: 0.75rem 0; white-space: pre-wrap; }
+      #chat-form { display: flex; gap: 0.5rem; }
+      #chat-input { flex: 1; padding: 0.5rem; font: inherit; border: 1px solid var(--line); border-radius: 6px; }
     </style>
   </head>
   <body>
-    <h1>Your AI Application</h1>
-    <p>
-      This is a deliberately plain frontend. Making it good is your job — open
-      this file in VS Code and point Claude Code at it.
-    </p>
+    <header>
+      <h1>ColdLade · Order intake</h1>
+      <small id="model">model: …</small>
+    </header>
 
-    <div id="log"></div>
-    <form id="form">
-      <input id="input" placeholder="Ask something..." autocomplete="off" />
-      <button type="submit">Send</button>
-    </form>
+    <main>
+      <section>
+        <h2>1. Paste one order</h2>
+        <label for="order">Email body, with any PO or freight confirmation text pasted below it</label>
+        <textarea id="order" placeholder="Paste the order here..."></textarea>
+        <div class="row">
+          <div>
+            <label for="received">Received</label>
+            <input type="date" id="received" />
+          </div>
+          <button id="go">Read order</button>
+          <span class="hint" id="status"></span>
+        </div>
+      </section>
+
+      <section>
+        <h2>2. Check the draft shipment</h2>
+        <div id="result"><p class="hint">The draft shipment appears here. Empty fields are highlighted, never guessed.</p></div>
+      </section>
+    </main>
+
+    <details>
+      <summary>General chat (the starter /chat endpoint)</summary>
+      <div id="log"></div>
+      <form id="chat-form">
+        <input id="chat-input" placeholder="Ask something..." autocomplete="off" />
+        <button type="submit">Send</button>
+      </form>
+    </details>
 
     <script type="module">
       // NOTE: this loads the Gradio client from a public CDN. On a locked-down
-      // corporate network that request may simply fail. Worth noticing now --
-      // it is the kind of thing that turns a working demo into a broken one the
-      // moment it moves inside the firewall.
+      // corporate network that request may simply fail -- see Step 9.
       import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
 
+      const $ = (id) => document.getElementById(id);
       const client = await Client.connect(window.location.origin);
-      const log = document.getElementById("log");
-      const form = document.getElementById("form");
-      const input = document.getElementById("input");
 
-      // The model has no memory. This array is the entire conversation.
-      const history = [];
+      // Show which model is answering (from the /health endpoint).
+      fetch("/health").then((r) => r.json()).then((h) => ($("model").textContent = `model: ${h.model}`)).catch(() => {});
 
-      function addTurn(who, text) {
-        const div = document.createElement("div");
-        div.className = "turn";
-        div.innerHTML = `<span class="who">${who}:</span> `;
-        const span = document.createElement("span");
-        div.appendChild(span);
-        span.textContent = text;
-        log.appendChild(div);
-        log.scrollTop = log.scrollHeight;
-        return span;
+      // Pre-fill "Received" with today's date in the user's own time zone.
+      $("received").value = new Date().toLocaleDateString("en-CA");
+
+      // ---- Order intake ---------------------------------------------------
+      const FLAG_LABELS = {
+        RATE_LOOKUP_NEEDED: "Rate lookup needed",
+        DELIVERY_TO_BE_SCHEDULED: "Delivery to be scheduled",
+        TEMP_STANDARD_ASSUMED: "Standard temp assumed: confirm",
+      };
+
+      function place(loc) {
+        if (!loc) return null;
+        const line1 = [loc.company, loc.street].filter(Boolean).join(", ");
+        const line2 = [loc.city, [loc.state, loc.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+        return [line1, line2].filter(Boolean).join(" · ") || null;
       }
 
-      form.addEventListener("submit", async (e) => {
-        e.preventDefault();
-        const message = input.value.trim();
-        if (!message) return;
-        input.value = "";
+      function row(tbody, label, value) {
+        const tr = tbody.insertRow();
+        const th = document.createElement("th");
+        th.textContent = label;
+        tr.appendChild(th);
+        const td = tr.insertCell();
+        const empty = value === null || value === undefined || value === "";
+        td.textContent = empty ? "not in order" : value;
+        if (empty) td.className = "empty";
+      }
 
-        addTurn("You", message);
-        const out = addTurn("Assistant", "");
+      function render(r) {
+        const out = $("result");
+        out.replaceChildren();
 
-        // submit() streams; each event carries the reply so far.
-        let reply = "";
-        const job = client.submit("/chat", { message, history });
-        for await (const event of job) {
-          if (event.type === "data") {
-            reply = event.data[0];
-            out.textContent = reply;
-            log.scrollTop = log.scrollHeight;
+        const banner = document.createElement("div");
+        banner.className = "banner " + (r.needs_human ? "stop" : "ok");
+        banner.textContent = r.needs_human
+          ? `Needs a person before entering: ${r.needs_human_reason || "no reason given"}`
+          : "Ready to check and enter.";
+        out.appendChild(banner);
+
+        const temp = r.temp_mode ? `${r.temp_mode}${r.temp_max_f !== null ? `, max ${r.temp_max_f}°F` : ""}` : null;
+        const table = document.createElement("table");
+        const tb = table.createTBody();
+        row(tb, "References", r.refs.length ? r.refs.join(", ") : null);
+        row(tb, "Pickup from", place(r.origin));
+        row(tb, "Deliver to", place(r.destination));
+        row(tb, "Pickup date", r.pickup_date);
+        row(tb, "Delivery date", r.delivery_date || r.delivery_window);
+        row(tb, "Temperature", temp);
+        row(tb, "Pallets", r.pallets);
+        row(tb, "Cases", r.cases);
+        row(tb, "Weight (lb)", r.weight_lb !== null ? r.weight_lb.toLocaleString() : null);
+        row(tb, "Rate (USD)", r.rate_usd !== null ? `$${r.rate_usd.toLocaleString()}` : null);
+        out.appendChild(table);
+
+        if (r.flags.length) {
+          const tags = document.createElement("div");
+          tags.className = "tags";
+          for (const f of r.flags) {
+            const t = document.createElement("span");
+            t.className = "tag";
+            t.textContent = FLAG_LABELS[f] || f;
+            tags.appendChild(t);
           }
+          out.appendChild(tags);
         }
 
-        history.push({ role: "user", content: message });
-        history.push({ role: "assistant", content: reply });
+        const h = document.createElement("h2");
+        h.textContent = r.questions.length ? "Questions for the customer" : "No questions for the customer";
+        out.appendChild(h);
+        if (r.questions.length) {
+          const ol = document.createElement("ol");
+          ol.className = "questions";
+          for (const q of r.questions) {
+            const li = document.createElement("li");
+            li.textContent = q.question + " ";
+            const f = document.createElement("span");
+            f.className = "field";
+            f.textContent = `(${q.field})`;
+            li.appendChild(f);
+            ol.appendChild(li);
+          }
+          out.appendChild(ol);
+        }
+      }
+
+      $("go").addEventListener("click", async () => {
+        const order_text = $("order").value.trim();
+        const received_date = $("received").value;
+        if (!order_text) { $("status").textContent = "Paste an order first."; return; }
+
+        $("go").disabled = true;
+        $("status").textContent = "Reading order… (a few seconds)";
+        const started = performance.now();
+        try {
+          const result = await client.predict("/draft_shipment_from_order", { order_text, received_date });
+          render(JSON.parse(result.data[0]));
+          $("status").textContent = `Done in ${((performance.now() - started) / 1000).toFixed(1)}s`;
+        } catch (err) {
+          // Show failures on the page, not just in the console.
+          $("result").innerHTML = "";
+          const div = document.createElement("div");
+          div.className = "banner error";
+          div.textContent = `Something went wrong: ${err?.message || err}`;
+          $("result").appendChild(div);
+          $("status").textContent = "";
+        } finally {
+          $("go").disabled = false;
+        }
+      });
+
+      // ---- Starter chat (kept, collapsed) -----------------------------------
+      const history = [];
+      $("chat-form").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const message = $("chat-input").value.trim();
+        if (!message) return;
+        $("chat-input").value = "";
+        const turn = document.createElement("div");
+        turn.textContent = `You: ${message}\nAssistant: `;
+        const out = document.createElement("span");
+        turn.appendChild(out);
+        $("log").appendChild(turn);
+        let reply = "";
+        for await (const event of client.submit("/chat", { message, history })) {
+          if (event.type === "data") { reply = event.data[0]; out.textContent = reply; }
+        }
+        history.push({ role: "user", content: message }, { role: "assistant", content: reply });
       });
     </script>
   </body>

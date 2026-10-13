@@ -249,6 +249,9 @@ wants a field the schema does not have, that is a Step 5 change first.
   Week 1 is deliberately small.
 - Logic shared by two or more functions in `llm.py` gets factored into a
   helper, not copy-pasted.
+- Not every model accepts every setting (Claude Sonnet 5 rejects
+  `temperature=0`). Model calls in `llm.py` pass `drop_params=True`, so an
+  unsupported setting is dropped instead of failing the call.
 
 ---
 

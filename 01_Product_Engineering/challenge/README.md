@@ -531,9 +531,13 @@ coming, and doing them now teaches the wrong lesson.
    match the `Request` and `Response` types from Step 5.
 2. **A written answer to four questions**, in your repo:
    1. What is one thing you do at work this could take over?
+      - Re-typing customer orders into the TMS. The order desk reads about 145 emailed and web orders a month and keys each one in by hand. This helps check instead of type.
    2. What exactly goes in — a string, a file, several fields?
+      - Two text fields: order text including the full emails with PO or freight confirmations and Received Date. One order per request with PDFs converted to text first.
    3. What comes back, and who reads it?
+      - A draft shipment as JSON, questions to send to the customer and flags for the order desk for rates, delivery, and temp info, and a notification if a human is needed. This is read by the order desk.
    4. What did you name it, and why would an agent pick it correctly?
+      - `draft_shipment_from_order` because it signals the input, output, and that it's a draft that someone should review. The name tells an agent this is one to call with a customer order, and the typed arguments and docstring tell it what to send.
 3. **The endpoint has a place in the UI.** It does not have to be pretty; it has
    to work.
 4. **The frontend is meaningfully yours** — restyled, or given a system-prompt

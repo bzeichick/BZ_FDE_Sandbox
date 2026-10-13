@@ -11,7 +11,10 @@ from pathlib import Path
 from fastapi.responses import HTMLResponse
 from gradio import Server
 
+from pydantic import ValidationError
+
 from llm import stream_reply
+from schema import Request, Response, solve
 
 app = Server()
 
@@ -27,6 +30,32 @@ FRONTEND = Path(__file__).parent / "frontend" / "index.html"
 def chat(message: str, history: list | None = None) -> str:
     """Stream a reply to one user message."""
     yield from stream_reply(message, history)
+
+
+@app.api(name="draft_shipment_from_order")
+def draft_shipment_from_order(order_text: str, received_date: str) -> str:
+    """Read one customer shipping order and draft the shipment for the TMS.
+
+    order_text: the full text of ONE order -- email body, with any PO or freight
+    confirmation PDFs converted to text and pasted below it.
+    received_date: the date the order arrived, YYYY-MM-DD (resolves "pick up Friday").
+
+    Returns a JSON object (the Response in schema.py): refs, origin, destination,
+    pickup and delivery dates, temperature, pallets, cases, weight and rate; questions
+    to send the customer for anything missing; flags for the order desk; and
+    needs_human=true when the order should not be entered without a person checking.
+    Never guesses: anything the order doesn't state is left empty.
+    """
+    try:
+        request = Request(order_text=order_text, received_date=received_date)
+    except ValidationError:
+        # A bad date or empty input is answered in the same shape, not with a crash,
+        # so every caller -- the web page, the eval harness, an agent -- handles one format.
+        return Response(
+            needs_human=True,
+            needs_human_reason="The order text or received date was missing or not a valid date (use YYYY-MM-DD).",
+        ).model_dump_json()
+    return solve(request).model_dump_json()
 
 
 # --- The frontend ------------------------------------------------------------
