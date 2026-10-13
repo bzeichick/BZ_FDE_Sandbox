@@ -1055,6 +1055,11 @@ build against it — measuring it afterwards is a different, weaker thing.
 4. **Your repo link posted in [our community on Maven](https://bit.ly/fde1-maven-community)**,
    and comments on at least two other students' submissions after the deadline.
 
+## Submission links
+
+- **Loom demo:** https://www.loom.com/share/edbaf8c547fa41b38023910a620f4759
+- **Deployed app:** https://intake.zeichick.ai (reviewer login provided in the Maven post). Runs as a Docker container on a small AWS Lightsail server behind Nginx with HTTPS.
+
 ## Bring it to work
 
 **Napkin math**
