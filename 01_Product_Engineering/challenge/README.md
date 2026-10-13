@@ -456,6 +456,11 @@ later, from generation seeded by these.
 2. **One line in your README** saying which example is the edge case and which
    is the decline.
 
+**My goldens:** 
+- Lines 2–3 are the edge cases (no temperature or pickup date; pickup named only as a facility in a quote request).
+- Lines 4–5 are the declines (no pickup location; already picked up — a status update).
+- Line 6 is the unresolved one (pre-dispatch issues the output can't carry yet).
+
 ---
 
 ## Step 8 — Build something real
