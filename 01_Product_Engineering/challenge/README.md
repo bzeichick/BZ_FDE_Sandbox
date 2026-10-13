@@ -994,6 +994,14 @@ most valuable thing you will learn this week.
    reject, and what did you change as a result — one line in
    `use_case/decisions.md` or a rewritten example.
 
+**Demo: co-founder, screen-share, 5 orders** (the ops coordinator wasn't available).
+
+1. **What would you use this for?** Not asked first — I explained the app before showing it, so I lost his unprompted answer. What he volunteered: the most valuable next step is having it "dig for info" and draft appointment requests from the contact details it collects.
+2. **What is missing before you would actually use it?** A ready date instead of a pickup date (pickups are scheduled around our own consolidated runs); temperature as a range; questions that ask for a ready date and for contact name, phone and email; delivery questions about receiving hours and appointments; and eventually knowledge from the TMS (sailing schedule, history).
+3. **What would you expect it to cost?** Not asked — following up.
+
+**Goldens:** he rejected golden #1 (9/25 is a ready date, not a pickup date) and the single-number temperature; all six goldens now follow the ready-date rule (a customer’s date is a ready date; only firm or completed pickups are pickup dates) and record temperature as a range. (see decisions.md).
+
 ---
 
 ## 📤 Step 13 — Share: bring it to work

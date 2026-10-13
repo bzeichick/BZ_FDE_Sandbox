@@ -53,6 +53,7 @@ Flag = Literal[
     "TEMP_STANDARD_ASSUMED",  # order said frozen/refrigerated but no number; company standard range used — confirm
     "RATE_LOOKUP_NEEDED",     # no rate in the order; needs a rate lookup or a quote
     "DELIVERY_TO_BE_SCHEDULED",  # no delivery date given; the company schedules it and advises the customer
+    "PICKUP_TO_BE_SCHEDULED",    # no firm pickup date; the company schedules pickup around its own runs
 ]
 
 
@@ -99,9 +100,18 @@ class Response(BaseModel):
     destination: Location | None = Field(default=None, description="Delivery location.")
 
     # --- When -----------------------------------------------------------------
+    # Step 12 feedback: a customer's "ready Friday" is not the pickup date. The
+    # company picks up on its own consolidated runs, so the customer's date is kept
+    # as ready_date and pickup_date is only a firm, scheduled or actual pickup.
+    ready_date: date | None = Field(
+        default=None,
+        description="When the customer says the freight is ready, or the pickup date they request "
+                    "('ready as early as Friday', 'requested pick up 9/30 or 10/1' -> the earliest).",
+    )
     pickup_date: date | None = Field(
         default=None,
-        description="A specific pickup day. Empty if not stated or too vague to pin down.",
+        description="A firm pickup or ship date: one the shipper's documents fix ('ship date October 2') "
+                    "or a pickup that already happened. Empty, with PICKUP_TO_BE_SCHEDULED, otherwise.",
     )
     delivery_date: date | None = Field(
         default=None,
@@ -117,10 +127,15 @@ class Response(BaseModel):
     )
 
     # --- Temperature ----------------------------------------------------------
+    # Step 12 feedback: temperature is a range ("zero to negative ten"), not one number.
     temp_mode: TempMode | None = None
+    temp_min_f: float | None = Field(
+        default=None,
+        description="Coldest allowed temperature in °F. Frozen with -10 stated or assumed -> -10.",
+    )
     temp_max_f: float | None = Field(
         default=None,
-        description="Warmest allowed temperature in °F (e.g. 'set reefer -10F' -> -10).",
+        description="Warmest allowed temperature in °F. Frozen -> 0; refrigerated -> 38.",
     )
 
     # --- Freight --------------------------------------------------------------
@@ -165,22 +180,29 @@ Return ONLY a JSON object matching the JSON schema below. No prose, no code fenc
 Rules:
 - Use only what the order text says (body, subject line, attachments). Never fill a value
   from what a customer usually does, and never invent one. Empty (null) beats a guess.
-- Required fields: refs, origin, destination, pickup_date, temperature (temp_mode), pallets,
-  cases, weight_lb. When one is missing or only partly given, leave the missing part empty and
+- Required fields: refs, origin, destination, ready_date or pickup_date, temperature (temp_mode),
+  pallets, cases, weight_lb. When one is missing or only partly given, leave the missing part empty and
   add a question for the customer with field set to that field's name. Examples: no case count
   -> field "cases"; origin named only as a facility with no street address -> field "origin";
   no consignee name -> field "destination"; no temperature at all -> field "temp_mode".
 - refs: every PO, SO and freight PO number in the order, as written, without labels.
-- Dates are YYYY-MM-DD. Resolve relative dates ("Friday") from received_date. If several pickup
-  dates are offered, use the earliest. "As early as <day>" is the pickup date.
+- Dates are YYYY-MM-DD. Resolve relative dates ("Friday") from received_date.
+- Pickup: a date the customer gives for when freight is ready, or a pickup date they request, is
+  ready_date (if several are offered, use the earliest; "ready as early as Friday" is a ready date).
+  The company picks up on its own scheduled runs, so pickup_date is only a firm date fixed by the
+  shipper's documents (a ship date) or a pickup that already happened. When there is no firm
+  pickup date, leave pickup_date empty and add flag PICKUP_TO_BE_SCHEDULED. If the order gives no
+  ready date and no pickup date at all, also ask when it will be ready, with field "ready_date"
+  (ask for a ready date, never "when should we pick up").
 - Delivery: a specific date is delivery_date. A deadline ("before or on 10/7") is delivery_date.
   A vague window ("week of 10/5") goes in delivery_window as written, delivery_date stays empty,
   and add flag DELIVERY_TO_BE_SCHEDULED. No delivery date at all: leave both empty and add
   DELIVERY_TO_BE_SCHEDULED. Never ask the customer about delivery.
-- Temperature: "-10" or "-10F" with frozen means temp_max_f -10. If the order says frozen or
-  refrigerated but gives no number, use the company standard (frozen: temp_max_f 0;
-  refrigerated: temp_max_f 38) and add flag TEMP_STANDARD_ASSUMED. If neither mode nor number
-  is stated, leave both empty and ask.
+- Temperature is a range. Frozen with "-10" (or "set reefer at -10") is temp_min_f -10,
+  temp_max_f 0. A range the order states is used as stated. If the order says frozen or
+  refrigerated but gives no number, use the company standard (frozen: -10 to 0;
+  refrigerated: 34 to 38) and add flag TEMP_STANDARD_ASSUMED. If neither mode nor number
+  is stated, leave all three empty and ask.
 - Weight: when both gross and net weight are given, use the gross weight (with pallets).
 - Rate: a rate stated anywhere in the thread (a quoted rate, a PO price) goes in rate_usd. If no
   rate is stated, leave it empty and add flag RATE_LOOKUP_NEEDED. Never ask the customer for a rate.

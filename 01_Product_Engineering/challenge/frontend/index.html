@@ -101,6 +101,7 @@
         RATE_LOOKUP_NEEDED: "Rate lookup needed",
         DELIVERY_TO_BE_SCHEDULED: "Delivery to be scheduled",
         TEMP_STANDARD_ASSUMED: "Standard temp assumed: confirm",
+        PICKUP_TO_BE_SCHEDULED: "Pickup to be scheduled",
       };
 
       function place(loc) {
@@ -132,12 +133,15 @@
           : "Ready to check and enter.";
         out.appendChild(banner);
 
-        const temp = r.temp_mode ? `${r.temp_mode}${r.temp_max_f !== null ? `, max ${r.temp_max_f}°F` : ""}` : null;
+        // Temperature as a range (Step 12 feedback), e.g. "frozen, -10°F to 0°F".
+        const range = [r.temp_min_f, r.temp_max_f].filter((t) => t !== null).map((t) => `${t}°F`).join(" to ");
+        const temp = r.temp_mode ? `${r.temp_mode}${range ? `, ${range}` : ""}` : null;
         const table = document.createElement("table");
         const tb = table.createTBody();
         row(tb, "References", r.refs.length ? r.refs.join(", ") : null);
         row(tb, "Pickup from", place(r.origin));
         row(tb, "Deliver to", place(r.destination));
+        row(tb, "Ready date", r.ready_date);
         row(tb, "Pickup date", r.pickup_date);
         row(tb, "Delivery date", r.delivery_date || r.delivery_window);
         row(tb, "Temperature", temp);
