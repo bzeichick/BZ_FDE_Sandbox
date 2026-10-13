@@ -11,7 +11,8 @@ Use roles, not names. This is a public fork.
 
 | Week | Who (role) | What you asked | What you learned | Follow-up |
 | --- | --- | --- | --- | --- |
-| 1 | <!-- e.g. Platform Engineering lead --> | <!-- where would a container run here? --> | <!-- --> | <!-- --> |
+| 1 | Co-owner, freight brokerage | Where would a small internal web app run, who would sign in to it, can it call an outside AI service, and who approves it? | No company platform: it runs on the VM I administer under my consulting company's AWS account. Email is Microsoft 365 but nobody knows who holds the admin account, so sign-in is per-person passwords for the trial. OK to send orders to an outside LLM, with alternatives ready. Trial with four order-desk users. Their bar: saves time, easy to use, no mistakes. | Recover the Microsoft 365 admin; schedule the trial and demo (Step 12). |
+| 1 | Trial users: ops coordinator, both co-founders, sales lead | (Step 12 demo — not yet held) | | Schedule the demo; ask the four Step 12 questions. |
 
 ---
 

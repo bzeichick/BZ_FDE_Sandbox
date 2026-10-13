@@ -18,26 +18,31 @@ put real hostnames, IPs, or architecture diagrams in this file.
 
 **Who did you ask?** (role, not name)
 
-<!-- your answer here -->
+Co-owner of the freight brokerage. Internal tooling is run by an outside consultant (me), so I'm also the partial platform owner.
 
 | # | Question | Answer |
 | :---: | --- | --- |
-| 1 | Where do internal apps run? (k8s, ECS, App Service, a VM someone maintains) | <!-- --> |
-| 2 | Which cloud? AWS, Azure, GCP, on-prem, several? | <!-- --> |
-| 3 | Is there an internal container registry? | <!-- --> |
-| 4 | How do users log in? (Okta, Entra ID, Ping, SAML, homegrown) | <!-- --> |
-| 5 | Can the app reach the internet? Egress proxy? Allowlist? | <!-- --> |
-| 6 | Where do secrets come from? (Vault, Secrets Manager, Key Vault) | <!-- --> |
-| 7 | Who approves a deployment, and what review does it need? | <!-- --> |
-| 8 | Is there an approved internal LLM endpoint already? | <!-- --> |
+| 1 | Where do internal apps run? (k8s, ECS, App Service, a VM someone maintains) | A small Ubuntu cloud VM I administer, which already runs a production report. This app would run there in Docker behind Nginx on its own subdomain. |
+| 2 | Which cloud? AWS, Azure, GCP, on-prem, several? | AWS (Lightsail), under my consulting company’s account; DNS through Cloudflare. |
+| 3 | Is there an internal container registry? | None. Build the image on the server, or push to a private GitHub or AWS registry. |
+| 4 | How do users log in? (Okta, Entra ID, Ping, SAML, homegrown) | Email runs on Microsoft 365, but need to figure out admin access. Per-person passwords at Nginx for the trial. |
+| 5 | Can the app reach the internet? Egress proxy? Allowlist? | Open outbound; the server already calls the TMS web services and an external LLM. The TMS’s production web services only accept this server’s address. |
+| 6 | Where do secrets come from? (Vault, Secrets Manager, Key Vault) | A .env file on the server; no secrets manager. |
+| 7 | Who approves a deployment, and what review does it need? | The owners; no formal review. The TMS vendor separately approves production web-service access. |
+| 8 | Is there an approved internal LLM endpoint already? | None. A direct Anthropic API key paid by my consulting company; alternatives if needed are AWS Bedrock, Microsoft’s AI service, or a self-hosted model. |
 
 **What surprised you?**
 
-<!-- your answer here -->
+Nobody internally knows how to access the Microsoft 365 admin, so single sign-on is blocked.
 
 **What would you have to change about your app to deploy there?**
 
-<!-- your answer here -->
+- Run behind Nginx on localhost only, with TLS and per-person passwords for the trial; switch to MS 365 once admin account is recovered.
+- Put `@gradio/client` in the image instead of loading it from CDN.
+- Read the api key from a .env on the server, not from the repo.
+- Add a restart policy and send logs so that they can be seen.
+- Check memory, and likely size up the instance.
+- Don't let it run the mailbox-reading job.
 
 ---
 

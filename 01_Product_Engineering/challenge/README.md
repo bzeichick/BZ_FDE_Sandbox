@@ -771,31 +771,38 @@ Fill these in directly in this README, and commit it.
 
 **Who did you ask?** (role, not name)
 
-<!-- Your answer here -->
+Co-owner of the freight brokerage. Internal tooling is run by an outside consultant (me), so I'm also the partial platform owner
 
 **Where would this application run?**
 
-<!-- Your answer here -->
+On an Ubuntu cloud VM that I administer and currently have a production planning report running. 
+This would run on the same VM with Docker behind Nginx on its own subdomain
 
 **Which cloud provider, if any?**
 
-<!-- Your answer here -->
+AWS Lightsail. DNS through Cloudflare
 
 **How would users authenticate?**
 
-<!-- Your answer here -->
+Per-person HTTP basic-auth login at Nginx for now. Will use Microsoft 365 once figuring out internal admin at brokerage company
 
 **Could this container reach an external LLM API? If not, what would it use instead?**
 
-<!-- Your answer here -->
+Yes, outbound internet is open and the server already calls web services from the TMS.
+And there's already a separate eval on the system that calls an external LLM directly
 
 **What surprised you in this conversation?**
 
-<!-- Your answer here -->
+Nobody internally knows how to access the Microsoft 365 admin, so single sign-on is blocked.
 
 **What would you have to change about this app to make it deployable there?**
 
-<!-- Your answer here -->
+- Run behind Nginx on localhost only, with TLS and per-person passwords for the trial; switch to MS 365 once admin account is recovered.
+- Put `@gradio/client` in the image instead of loading it from CDN.
+- Read the api key from a .env on the server, not from the repo.
+- Add a restart policy and send logs so that they can be seen.
+- Check memory, and likely size up the instance.
+- Don't let it run the mailbox-reading job.
 
 Then log the answers in [`use_case/ecosystem.md`](../../use_case/ecosystem.md)
 and the person you asked in
