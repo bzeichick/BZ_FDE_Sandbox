@@ -316,34 +316,86 @@ def _(mo):
 
 @app.cell
 def _():
-    # Priya's axes, for incident records. Rewrite these for your use case --
-    # the four KEYS vary in almost every enterprise text problem; the VALUES
-    # are hers, and yours will be different.
-    AXES = {
-        "persona": [
-            "a first-line support agent relaying a customer complaint",
-            "an on-call engineer writing at 3 a.m., mid-incident",
-            "a business manager who saw the outage but not the cause",
-            "a security analyst using precise jargon and ticket references",
+    # ColdLade axes, generated in two runs (TC2 -- see decisions.md).
+    # ENTERABLE: orders the desk should enter; every axis that changes the
+    #   expected output is crossed with every other.
+    # ROUTE_TO_PERSON: orders that must go to needs_human; only arrival x reason
+    #   is crossed, because routing is what's under test and field extraction
+    #   is covered by ENTERABLE.
+
+    ENTERABLE = {
+        # Why: customers vary between clean emails, long back-and-forth threads
+        # with the broker (negotiating, clarifying, filling in missing info), and
+        # attaching a PO rather than retyping it; tests whether the model finds the
+        # order when it's buried mid-thread or only in the attachment.
+        "arrival": [
+            "one clean email from the shipper's usual template",
+            "a long thread of back-and-forth with the broker, with signatures and quoted replies, sometimes printed from Gmail with page headers",
+            "a short email with an attached PO or freight confirmation pasted in as text, where the order details live in the attachment",
         ],
-        "length": ["one terse line", "a normal paragraph", "a rambling wall of text"],
-        "difficulty": [
-            "completely routine -- a known failure with a known fix",
-            "ambiguous -- could be an outage or a misconfiguration",
-            "under legal hold -- the system should decline to draft anything",
+        # Why: real orders name a facility or say "the usual dock" instead of an
+        # address; tests whether the model invents a street instead of asking (C9's GUESS).
+        "location_reference": [
+            "full street address for pickup and delivery",
+            "pickup named only by an invented facility nickname, such as 'the north DC'",
+            "pickup implied ('our usual dock', 'same place as last time') with no address",
         ],
-        "quality": [
-            "clean prose typed into the ticketing form",
-            "typos and abbreviations pasted from the on-call chat",
-            "pasted from an email chain with the thread still attached",
+        # Why: an order can arrive complete, as a quote with no agreed price, with
+        # the quote inside the order thread, or with later corrections to date or
+        # pallet count; tests whether the model enters a quoted price before it's
+        # accepted, or keeps the original value after a correction.
+        "request": [
+            "a new order",
+            "a quote request with no price agreed yet",
+            "a quote thread where the customer accepts a rate the broker quoted",
+            "a correction later in the thread that changes the date or pallet count",
+        ],
+        # Why: merged to the three rules the order desk applies; the flag on an
+        # assumed standard range matters because products need different temps
+        # (ice cream vs. frozen vegetables); tests whether the model passes off a
+        # default as stated, which books the wrong setpoint and gets the load rejected.
+        "temperature": [
+            "a stated number or range, frozen or refrigerated",
+            "a mode word only ('frozen', 'REFER', 'refrigerated'), no number",
+            "no temperature stated",
+        ],
+        # Why: requested pickup and delivery dates can be explicit, flexible, a hard
+        # deadline, a broker-proposed pickup the customer confirms or pushes back on,
+        # or missing; tests whether the model treats a "ready" or requested date as a
+        # booked pickup (the error rejected in the demo) and only treats a proposed
+        # pickup as firm once the customer confirms it.
+        "date_phrasing": [
+            "explicit pickup or ready date and delivery date",
+            "flexible readiness: a relative day ('as early as Friday') or several options ('9/30 or 10/1')",
+            "a delivery deadline ('before or on 10/7') or a vague window ('week of 10/5')",
+            "the broker proposes a pickup date in the thread, and the customer confirms it or pushes back",
+            "no date given",
         ],
     }
 
-    combination_count = 1
-    for axis_values in AXES.values():
-        combination_count *= len(axis_values)
-    print(f"{len(AXES)} axes -> {combination_count} distinct combinations")
-    return (AXES,)
+    ROUTE_TO_PERSON = {
+        "arrival": ENTERABLE["arrival"],   # same values, so the two runs are comparable
+        # Why: inputs where entering a normal order would be wrong -- no clear pickup
+        # (truck sent to the wrong place), a cancellation (a load picked up and refused
+        # at delivery), a status update (a duplicate order, or a lifecycle nobody can
+        # read), or several shipments (___); tests whether the model routes these to a
+        # person instead of producing a confident order.
+        "reason": [
+            "no pickup location given at all",
+            "a cancellation of an order sent earlier in the thread",
+            "a status update on a load that was already picked up",
+            "several shipments in one email",
+        ],
+    }
+
+    def count(axes):
+        n = 1
+        for values in axes.values():
+            n *= len(values)
+        return n
+
+    print(f"enterable: {count(ENTERABLE)}  route-to-person: {count(ROUTE_TO_PERSON)}")
+    return ENTERABLE, ROUTE_TO_PERSON
 
 
 @app.cell(hide_code=True)
@@ -371,7 +423,7 @@ def _(mo):
     and in one to three sentences say which failure of your system it would
     expose that two hundred paraphrases of your five examples never could.
 
-    **Answer:**
+    **Answer:** Location Reference. Paraphrasing my five examples only rewords orders that already contain clean addresses, so the test set never contains the case real orders bring constantly; this axis would expose whether the system invents a plausible address to satisfy the schema instead of flagging it, a failure that passes validation and only shows up when a reefer arrives at the wrong dock.
     """)
     return
 
@@ -407,12 +459,22 @@ def _(mo):
 
 
 @app.cell
-def _(AXES, SEEDS, json, mo):
+def _(ENTERABLE, ROUTE_TO_PERSON, SEEDS, json, mo):
     import itertools
+    import random
 
-    def build_prompt(seeds, combo: dict, example_count: int = 3) -> str:
+    SEEDS_BY_ARRIVAL = {
+        ENTERABLE["arrival"][0]: [2, 1],   # clean email   -> goldens #3, #2
+        ENTERABLE["arrival"][1]: [0, 4],   # long thread   -> goldens #1, #5
+        ENTERABLE["arrival"][2]: [5, 2],   # PO attached   -> goldens #6, #3
+    }
+
+    def build_prompt(seeds, combo: dict, example_count: int = 1) -> str:
         """One generation prompt for one point in the axis space."""
-        shown = "\n".join(json.dumps(seed, ensure_ascii=False) for seed in seeds[:3])
+        shown = "\n".join(
+            json.dumps(seeds[i], ensure_ascii=False)
+            for i in SEEDS_BY_ARRIVAL[combo["arrival"]]
+        )
         described = "\n".join(f"- {axis}: {value}" for axis, value in combo.items())
         return (
             "Here are real examples of inputs to a system, with the outputs a "
@@ -425,15 +487,53 @@ def _(AXES, SEEDS, json, mo):
             "- Invent all names, identifiers, and companies. Never reuse any "
             "from the examples.\n"
             "- Vary the substance, not just the wording.\n"
-            "- If the profile says the system should decline, the output should "
-            "say so plainly.\n"
+            "- Follow the profile literally. If it says no pickup location, the "
+            "order text must not contain one and origin must be null. If it says "
+            "implied or nickname only, give no street address. If it says status "
+            "update or correction, write that, not a fresh new order.\n"
+            "- Use only these flags: RATE_LOOKUP_NEEDED, PICKUP_TO_BE_SCHEDULED, "
+            "DELIVERY_TO_BE_SCHEDULED, TEMP_STANDARD_ASSUMED. Never invent new flag "
+            "names; anything else goes in needs_human_reason.\n"
+            "- If the run is route_to_person, set needs_human to true with a short "
+            "needs_human_reason, and still fill every field the order text states, "
+            "so the person handling it does not have to reopen the email.\n"
+            "- A correction later in the thread replaces the earlier value: the "
+            "expected output uses the latest date or pallet count, with no "
+            "question about it.\n"
+            "- rate_usd is null with RATE_LOOKUP_NEEDED unless the thread shows the "
+            "customer accepting a specific rate; a rate the broker quoted but the "
+            "customer has not accepted is not the rate.\n"
+            "- Never copy a street, city, or ZIP code from the examples; every "
+            "address must be newly invented.\n"
+            "- Do not add a liability, terms-and-conditions, or legal footer to "
+            "the order text.\n"
+            "- The examples show format only. When the profile says a temperature, "
+            "date, or location is missing, the order text must not contain it, "
+            "even though the examples do.\n"
+            "- Fill the expected output by these rules: a missing required field "
+            "(refs, origin, destination, ready date, temperature, pallets, cases, "
+            "weight) is left empty with a question to the customer; a missing date "
+            "asks when the freight will be ready, never when to pick up; several "
+            "requested dates keep the earliest as ready_date with "
+            "PICKUP_TO_BE_SCHEDULED; no delivery date sets DELIVERY_TO_BE_SCHEDULED "
+            "and asks nothing; a mode word with no number gets the standard range "
+            "(frozen -10 to 0, refrigerated 34 to 38) with TEMP_STANDARD_ASSUMED.\n"
+            "- Each item in questions must be an object with two keys: field (the "
+            "output field it is about, such as origin or ready_date) and question "
+            "(the text to send the customer). Never write a question as a plain "
+            "string.\n"
             "- Output only JSON lines, nothing else."
         )
 
-    COMBOS = [
-        dict(zip(AXES, values))
-        for values in itertools.product(*AXES.values())
-    ]
+    def combos(axes, run_name):
+        return [
+            {"run": run_name, **dict(zip(axes, values))}
+            for values in itertools.product(*axes.values())
+        ]
+
+    COMBOS = combos(ENTERABLE, "enterable") + combos(ROUTE_TO_PERSON, "route_to_person")
+    random.Random(0).shuffle(COMBOS)
+    COMBOS.sort(key=lambda combo: combo["run"] != "route_to_person")
 
     mo.md(
         f"**{len(COMBOS)} combinations.** Sampling a subset below — generating "
@@ -445,7 +545,7 @@ def _(AXES, SEEDS, json, mo):
 
 @app.cell
 def _(COMBOS, mo):
-    n_combos = mo.ui.slider(1, min(24, len(COMBOS)), value=6, label="Combinations to run")
+    n_combos = mo.ui.slider(1, len(COMBOS), value=6, label="Combinations to run")
     go = mo.ui.run_button(label="Generate")
     mo.vstack([n_combos, go])
     return go, n_combos
@@ -460,29 +560,38 @@ def _(CFG, COMBOS, SEEDS, build_prompt, go, json, mo, n_combos):
     RAW = []
     unparseable_lines = 0      # the model emitted a line that is not JSON
     dead_combos = 0            # the call itself failed — a whole axis point missing
+    empty_combos = []          # the call worked but produced zero usable rows
+    progress_file = open(CFG.use_case / "data" / "raw_progress.jsonl", "a")
     with mo.status.progress_bar(total=n_combos.value, title="Generating") as generation_bar:
         for combo in COMBOS[: n_combos.value]:
-            try:
-                # Explicit timeout. Inheriting the library default is how a
-                # generation run hangs for forty minutes and returns nothing —
-                # a retrieval concern, covered separately.
-                reply = completion(
-                    **CFG.kwargs(),
-                    messages=[{"role": "user", "content": build_prompt(SEEDS, combo)}],
-                    timeout=600,
-                ).choices[0].message.content or ""
-            except Exception:
-                dead_combos += 1
-                generation_bar.update()
-                continue
+            for attempt in range(2):                   # NEW: up to two tries
+                try:
+                    reply = completion(
+                        **CFG.kwargs(),
+                        messages=[{"role": "user", "content": build_prompt(SEEDS, combo)}],
+                        max_tokens=16000,
+                        timeout=600,
+                    ).choices[0].message.content or ""
+                except Exception:
+                    reply = None
 
-            for reply_line in reply.splitlines():
-                reply_line = reply_line.strip().strip("`")
-                if reply_line.startswith("{"):
-                    try:
-                        RAW.append({**json.loads(reply_line), "_axes": combo})
-                    except json.JSONDecodeError:
-                        unparseable_lines += 1
+                rows_before = len(RAW)
+                for reply_line in (reply or "").splitlines():
+                    reply_line = reply_line.strip().strip("`")
+                    if reply_line.startswith("{"):
+                        try:
+                            RAW.append({**json.loads(reply_line), "_axes": combo})
+                            progress_file.write(json.dumps(RAW[-1], ensure_ascii=False) + "\n")
+                            progress_file.flush()
+                        except json.JSONDecodeError:
+                            unparseable_lines += 1
+                if len(RAW) > rows_before:
+                    break                              # got a row, stop retrying
+
+            if reply is None:
+                dead_combos += 1
+            elif len(RAW) == rows_before:
+                empty_combos.append(combo)
             generation_bar.update()
 
     # These two are different failures and must not share a counter. An
@@ -490,9 +599,15 @@ def _(CFG, COMBOS, SEEDS, build_prompt, go, json, mo, n_combos):
     # in your axis space produced nothing at all, so the coverage you think you
     # have is smaller than you think. Averaging them into one number hides the
     # second one entirely.
-    print(f"✅ {len(RAW)} rows · {unparseable_lines} unparseable lines · {dead_combos} dead combos")
+    print(f"✅ {len(RAW)} rows · {unparseable_lines} unparseable lines · "      
+          f"{dead_combos} dead combos · {len(empty_combos)} empty combos")
     if dead_combos:
         print(f"⚠️  {dead_combos} axis combinations returned nothing — your coverage has holes there.")
+    if empty_combos:
+        print(f"⚠️  {len(empty_combos)} combinations answered but gave no usable rows:")
+        for combo in empty_combos:
+            print("   ", combo)
+    progress_file.close()
     return (RAW,)
 
 
@@ -606,7 +721,7 @@ def _(mo):
     0.7 threshold, and what in the *what got dropped* table you would look at
     to decide.
 
-    **Answer:**
+    **Answer:** Two emails from the same shipper — “please book the Fresno load for Friday, 20 pallets frozen” and “please cancel the Fresno load for Friday, 20 pallets frozen”. Both of these share almost every word but ask for opposite actions, so that case makes me want to raise the 0.7 threshold so look-alike orders survive deduplication. To decide, I’d look at the dropped pairs scoring just above 0.7 and check whether the dropped input differs from its kept match on an action, date or temperature field; if it does, the threshold is discarding real test cases, not duplicates.
     """)
     return
 
@@ -638,13 +753,51 @@ def _(mo):
 
 @app.cell
 def _():
+    from typing import Literal, Optional
     from pydantic import BaseModel, ValidationError
 
-    # Replace with YOUR model, from your charter.
-    class Example(BaseModel):
-        input: str
-        output: str
+    class Address(BaseModel):
+        company: Optional[str] = None
+        street: Optional[str] = None
+        city: Optional[str] = None
+        state: Optional[str] = None
+        zip: Optional[str] = None
 
+    class Question(BaseModel):
+        field: str
+        question: str
+
+    class OrderInput(BaseModel):
+        order_text: str
+        received_date: str
+
+    class OrderOutput(BaseModel):
+        refs: list[str]
+        origin: Optional[Address] = None
+        destination: Optional[Address] = None
+        ready_date: Optional[str] = None
+        pickup_date: Optional[str] = None
+        delivery_date: Optional[str] = None
+        delivery_window: Optional[str] = None
+        temp_mode: Optional[Literal["frozen", "refrigerated"]] = None
+        temp_min_f: Optional[float] = None
+        temp_max_f: Optional[float] = None
+        pallets: Optional[int] = None
+        cases: Optional[int] = None
+        weight_lb: Optional[float] = None
+        rate_usd: Optional[float] = None
+        questions: list[Question] = []
+        flags: list[Literal["RATE_LOOKUP_NEEDED", "PICKUP_TO_BE_SCHEDULED",
+                            "DELIVERY_TO_BE_SCHEDULED", "TEMP_STANDARD_ASSUMED"]] = []
+        needs_human: bool
+        needs_human_reason: Optional[str] = None
+
+    class Example(BaseModel):
+        input: OrderInput
+        output: OrderOutput
+        why: Optional[str] = None
+
+    Example, ValidationError
     return Example, ValidationError
 
 
@@ -819,7 +972,7 @@ def _(mo):
     and in one to three sentences, say what you would do about it before
     committing.
 
-    **Answer:**
+    **Answer:** My redaction swapped every name, email, phone, address, reference number and dollar amount, so the regex sees nothing. But it kept the real lanes, dates, pallet counts, weights and commodity descriptions, and that combination would let the shipper, the receiver or a competing broker recognize the exact loads and whose freight they were. Since golden.jsonl is already on my public fork, I’d change the lanes, commodities, weights and dates to plausible fictional values, have the brokerage owners review the result, and decide with them whether to remove the old version from the git history.
     """)
     return
 
@@ -856,7 +1009,8 @@ def _(CFG, VALID, json, mo, write):
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(
         "\n".join(
-            json.dumps({key: value for key, value in row.items() if not key.startswith("_")}, ensure_ascii=False)
+            json.dumps({**{key: value for key, value in row.items() if not key.startswith("_")},
+                        "axes": row.get("_axes")}, ensure_ascii=False)
             for row in VALID
         )
         + "\n",
@@ -897,7 +1051,7 @@ def _(mo):
     was never found"* — none of her five seeds is one, so none of the
     generated rows can be.)
 
-    **Answer:**
+    **Answer:** The file is prototyping data: every expected output was written by the generator and none has been checked by the order desk, so it can show the pipeline runs and the schema holds but can’t support an accuracy score. It therefore cannot validate that the system handles refrigerated orders correctly — none of my seeds is one, so the 18 refrigerated rows’ expected outputs are the generator’s guess, and only 6 of them use the company’s standard 34–38°F range.
     """)
     return
 

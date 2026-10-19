@@ -194,6 +194,12 @@ def _(mo):
     return CFG, LOGITS, META, TOKEN_IDS, np, time, token, ui
 
 
+@app.cell
+def _(LOGITS, TOKEN_IDS, token):
+    [(token(t), float(s)) for t, s in zip(TOKEN_IDS[0], LOGITS[0])]
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -481,7 +487,7 @@ def _(mo):
     incident"*, in one to three sentences — and say what the 95%-mass count you
     just watched tells you about what Legal is signing up for on either side.
 
-    **Answer:**
+    **Answer:** I want a lower temperature so that declining to draft behaves the same way every time and is predictable. At low temperature it’s close to deterministic: 95% of the probability sits on just a few tokens, so the behavior is small enough for Legal to review and approve. At high temperature that count climbs into the hundreds, which is fine for routine incidents where variety is the goal, but for a decline case it means Legal is approving a long tail of outputs it never saw.
     """)
     return
 
@@ -634,7 +640,7 @@ def _(mo):
     tool for that run, and what top-p does about it that she would otherwise
     have to tune by hand and re-justify per incident.
 
-    **Answer:**
+    **Answer:** A fixed k is wrong because it keeps the same number of options for every incident regardless of confidence, so confident openings still allow a lot of unlikely tokens while open-ended ones may lose good options and fixing that would require picking and re-adjusting different k for each of the incidents. Top-p sets the cutoff by probability instead of count so the set narrows automatically where the model is sure and wides where it isn't, allowing legal to approve a single rule that behaves correctly on every incident.
     """)
     return
 
@@ -886,7 +892,7 @@ def _(
             {"temperature": temperature.value, "k": top_k_value.value,
              "p": top_p_value.value},
         ),
-        ("wild (T=1.8)", {"temperature": 1.8}),
+        ("wild (T=1.5)", {"temperature": 1.5}),
     ]
 
     # Three 30-token generations on CPU take a while, and a blank cell for a
@@ -970,8 +976,33 @@ def _(mo):
     a colleague — or a regulator, with a different model next quarter — can
     reproduce the draft it produced.
 
-    **Answer:**
+    **Answer:** The alone isn't really that helpful because it's only relevant to one model's logits, and the same temperature that breaks this LiquidAI model could be perfectly fine on some other model. In order to reproduce the draft, the row needs the exact model and version it was measure on as well as the seed used for sampling (aling with other settings such a top-p). In addition using the same seed value consistently helps with ensuring reproducible outcomes.
     """)
+    return
+
+
+@app.cell
+def _():
+    from pathlib import Path as _P
+    from helpers.sizing import from_config, estimate
+
+    _cfg = next((_P.home() / ".cache/huggingface/hub/models--LiquidAI--LFM2.5-350M/snapshots").glob("*/config.json"))
+    _geo = from_config(str(_cfg), params=350e6)
+
+    print(estimate(_geo, context=4096,   batch=1))
+    print(estimate(_geo, context=131072, batch=8))
+    return estimate, from_config
+
+
+@app.cell
+def _(estimate, from_config):
+    from huggingface_hub import hf_hub_download
+
+    _cfg7b = hf_hub_download("Qwen/Qwen2.5-7B-Instruct", "config.json")
+    _geo7b = from_config(_cfg7b, params=7e9)
+
+    print(estimate(_geo7b, context=4096,   batch=1))
+    print(estimate(_geo7b, context=131072, batch=8))
     return
 
 
@@ -1483,7 +1514,7 @@ def _(mo):
     and how you would mark all of that so a reader six weeks from now cannot
     mistake a constraint for a preference.
 
-    **Answer:**
+    **Answer:** The wall-clock times and generated-token counts are only valid for that hardware, network and date, while the model name and the hosted token counts are reported by the provider and taken on trust. Regardless of any of those numbers, the hosted option fails Security’s requirement that the model run inside the network and Legal’s requirement that the approved sampler be enforceable and reproducible, especially since Claude rejected temperature=0.7 and returns no logits or seed control. I’d note date, hardware, source, and security and legal constraints, and keep them in their own section, so a faster hosted number six weeks from now can’t be read as reopening a requirement.
     """)
     return
 
