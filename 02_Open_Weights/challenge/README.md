@@ -559,3 +559,15 @@ challenge, which carries the full detail.
 
 Everything after this week assumes you have data you can show people, and a
 document that says what it is.
+
+---
+
+## Bring it to work
+
+**The project:** I now have two years of real US Perishables orders from a co-founder's mailbox that's copied on every emailed order, but I can't backtest ColdLade on them: the emails are the inputs, and the correct answers — what the order desk actually entered — live in the TMS, which I can't yet query or export. Until they're matched, real orders are prototyping data, the same as these 531 synthetic rows. Orders placed through the website form never reach that mailbox, so they're missing entirely.
+
+**What I would swap to run this at work**
+
+- **Data:** keep generating from a written description of each order type, not from real records (this week's run reused seed customer names in 8 rows even after fictionalizing). Use the real mailbox for two things instead: counting how often each axis value actually occurs, so the synthetic mix matches the real one, and a held-out set of 100 real orders (about 3% of the ~3,500 in two years; roughly 3–4 hours for the order desk to check at ~2 minutes each) matched to their TMS entries, kept private and out of every prompt. Web-form orders are out of scope for now.
+- **Model / endpoint:** the app stays on the Anthropic API, since the owners OK'd sending orders to an outside model. Generation moves to a local open-weights model I can seed and sample, because the hosted API rejected a temperature setting and takes no seed, so no run can be reproduced. Only invented text goes through generation; real orders only ever go to the app's own model call.
+- **Access / approval:** the owners' sign-off to use two years of customer email for evaluation, where it's stored and who can see it; read access or an export from the TMS to match each order to what was entered (production web-service access needs the vendor's approval, per TC1); and the order desk's time to check a sample of matches.

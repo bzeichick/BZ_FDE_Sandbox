@@ -69,13 +69,14 @@ Routing is what the second run tests; field extraction is covered by the first.
 - **Frozen/Refrigerated skew.** In the current dataset, stated temperatures are 154 refrigerated to 23 frozen, and mode words 103 to 67, while real freight for this broker is mostly frozen.
 - **Customer Profiles.** Labels assume text-only extraction and don't use customer profiles, and nickname and implied rows will eventually need re-labelling.
 - **Real formats.** Scanned BOLs, images, and PDFs that need text extraction aren’t represented; attachments appear only as clean pasted text.
+- **Web-form orders.** The charter's second channel, the order form on the website, isn't generated; the arrival axis covers email only.
 - **Reproducibility.** Provider-default sampler, no seed sent to the model. Rerunning the full dataset will produce different rows.
 - **Repeated Invented Details.** The current model used the same PO (BH4471) in 29 rows, the same contact (Dana) in 163 rows, and send times (8-9am) in 358.
 - **Answer-key labels for two rules.** About a third of the 61 remaining firm-pickup rows may repeat the demo error, and 37 nickname or implied rows have no origin question. Don’t score the system against these labels until they’re fixed.
 
 ## What it must never be compared against
 
-The ground truth is `use_case/evals/golden.jsonl` and the full eval set kept privately outside this repo. These synthetic rows are not ground truth, and a score on them must never be reported alongside or in place of a score on the goldens.
+The ground truth is `use_case/evals/golden.jsonl` and the full eval set kept privately outside this repo. These synthetic rows are not ground truth, and a score on them must never be reported alongside or in place of a score on the goldens. Real orders now exist in a private mailbox archive (two years, copied on every emailed order). Once matched to their TMS entries, they become the real ground truth, and these synthetic rows must never stand in for them.
 
 ## Leakage check — outward (what left)
 
