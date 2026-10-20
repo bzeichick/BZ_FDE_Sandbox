@@ -402,8 +402,8 @@ does not count is imagining how it would go.
 
 1. *"Which of these would never actually happen?"* — before you tell them
    what you were trying to cover.
-2. *"What comes in that is not here at all?"*
-3. *"If this were public, what would worry you?"*
+2. **What comes in that isn't here?** By phone: nothing missing for the types of orders.
+3. **If this were public, what would worry you?** By phone: nothing in the fake data worried him.
 
 The second answer is usually a variation axis you did not have, and that is the
 most valuable thing you will learn this week.
@@ -561,6 +561,38 @@ Everything after this week assumes you have data you can show people, and a
 document that says what it is.
 
 ---
+
+## Submission
+
+- **Loom (≤5 min):** https://www.loom.com/share/d520769caba940c5adacb0610b3dc24e
+- **Branch:** `tc2` — everything below is committed there. The data itself is gitignored; the datasheet says what it is.
+
+**Use case:** ColdLade order intake for a cold-chain freight brokerage — paste one customer order email, get the TMS fields back with anything missing turned into a question, never a guess.
+
+| Deliverable | Where | In one line |
+| --- | --- | --- |
+| Axes, with a reason per axis (Step 1) | [S4 notebook, Task 2](../sessions/S4_Synthetic_Data_Generation.py) · [datasheet](../../use_case/data/DATASHEET.md#variation-axes) | Two runs: 5 axes crossed for orders that should be entered (540 combinations), arrival × reason for orders that must go to a person (12). Domain axes: pickup location reference, request type, temperature wording, date phrasing |
+| Counts and settings (Step 2) | [datasheet](../../use_case/data/DATASHEET.md#what-this-data-is) | 552 combinations → 553 generated → 553 after dedupe → 551 schema-valid → 531 after reading. 0 dead combinations. claude-sonnet-5, provider-default sampler, max_tokens 16000, one retry, dedupe 0.7 |
+| Dedupe threshold decision | [decisions.md](../../use_case/decisions.md) | Kept 0.7: no pair reaches 0.5; the closest pairs are different orders sharing a template, not paraphrases |
+| Leak check + 50 rows read, what I removed (Step 3) | [datasheet](../../use_case/data/DATASHEET.md#leakage-check--outward-what-left) | Read 50, removed 20: 8 reused seed customer names, 3 repeated the demo's ready-vs-pickup error, 5 nickname pickups with no question, 3 mis-tagged, 1 missing temperature question |
+| Datasheet: cannot validate, ground truth, goldens provenance (Step 4) | [datasheet](../../use_case/data/DATASHEET.md) | Prototyping data, not backtesting. Goldens are **not** disjoint from what the prompt was tuned on |
+| Model/endpoint row, tagged (Step 4) | [decisions.md](../../use_case/decisions.md) | Hosted Anthropic API; every number tagged measured or looked up; no hard data-residency constraint yet |
+| Step 6: review by someone who sees real orders | [below](#step-6--review-by-someone-who-sees-the-real-orders) · [stakeholders.md](../../use_case/stakeholders.md) | Sales director reviewed all 20: 17 "Good", 3 comments; one became a new re-quote rule. By phone: no order types missing, nothing worrying if public |
+| Step 7: bring it to work | [below](#bring-it-to-work) | Two years of real orders exist, but they can't be backtested until they're matched to TMS entries |
+
+**What I'd want a reviewer to push on:** whether the two-run split hides anything, and whether the "cannot validate" list is missing something.
+
+### Step 6 — review by someone who sees the real orders
+
+The co-founder forwarded the 20 orders to the sales director, who replied on 10/20 in writing with a verdict per order, then answered the remaining questions by phone.
+
+1. **Which would never happen?** None flagged as unrealistic: 17 marked "Good". Three comments were about the entries: order 1, "Missing pick up address." (the tool sent it to a person, which agrees); order 2, "New rate for the 5 pallets, instead of the 6-pallet rate."; order 4, "Rate is needed." (the tool flagged a rate lookup, which agrees).
+2. **What comes in that isn't here?** By phone: nothing missing for the types of orders.
+3. **If this were public, what would worry you?** By phone: nothing in the fake data worried him.
+
+**What it changed:** a new rule. A correction that changes the pallet count or weight makes any earlier rate stale and triggers a re-quote ([decisions.md](../../use_case/decisions.md)). 9 synthetic correction rows carry a rate this rule would clear.
+
+**What it couldn't tell me:** two rows I'd already flagged (frozen product at 36 °F; a non-food load) were marked "Good", so this review checked entries against emails, not realism. "Nothing missing" was about order types; the format gaps in the datasheet (scanned BOLs, web-form orders) still stand.
 
 ## Bring it to work
 

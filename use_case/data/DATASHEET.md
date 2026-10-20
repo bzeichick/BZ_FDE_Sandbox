@@ -72,7 +72,7 @@ Routing is what the second run tests; field extraction is covered by the first.
 - **Web-form orders.** The charter's second channel, the order form on the website, isn't generated; the arrival axis covers email only.
 - **Reproducibility.** Provider-default sampler, no seed sent to the model. Rerunning the full dataset will produce different rows.
 - **Repeated Invented Details.** The current model used the same PO (BH4471) in 29 rows, the same contact (Dana) in 163 rows, and send times (8-9am) in 358.
-- **Answer-key labels for two rules.** About a third of the 61 remaining firm-pickup rows may repeat the demo error, and 37 nickname or implied rows have no origin question. Don’t score the system against these labels until they’re fixed.
+- **Answer-key labels for three rules.** About a third of the 61 remaining firm-pickup rows may repeat the demo error; 37 nickname or implied rows have no origin question; and 9 correction rows keep a rate that the re-quote rule (added after the Step 6 review) would leave empty. Don't score the system against these labels until they're fixed.
 
 ## What it must never be compared against
 
