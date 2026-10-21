@@ -49,8 +49,9 @@ class Request(BaseModel):
 # ---------------------------------------------------------------------------
 
 # A Literal is a list of the ONLY values allowed. Anything else is rejected.
-# "dry" added in Week 2: operations said every order is "Dry" or "Temp Controlled".
-TempMode = Literal["frozen", "refrigerated", "dry"]
+# "ambient" added after Week 2: operations said every order is "Dry" or "Temp
+# Controlled", and dry freight (or "no temp needed") ships ambient, with no range.
+TempMode = Literal["frozen", "refrigerated", "ambient"]
 
 # Flags are internal notes for the order desk, not questions for the customer.
 # What each one MEANS is written in the `flags` field's description below, not in
@@ -162,23 +163,31 @@ class Response(BaseModel):
     # Step 12 feedback: temperature is a range ("zero to negative ten"), not one number.
     temp_mode: TempMode | None = Field(
         default=None,
-        description="frozen, refrigerated, or dry (dry freight has no temperature range). "
+        description="frozen, refrigerated, or ambient (dry freight, no temperature needed, so no range). "
                     "Empty if the order doesn't say.",
     )
     temp_min_f: float | None = Field(
         default=None,
         description="Coldest allowed temperature in °F, as stated; the company standard is "
-                    "frozen -10, refrigerated 34. Empty for dry.",
+                    "frozen -10, refrigerated 34. Empty for ambient.",
     )
     temp_max_f: float | None = Field(
         default=None,
         description="Warmest allowed temperature in °F, as stated; the company standard is "
-                    "frozen 0, refrigerated 38. Empty for dry.",
+                    "frozen 0, refrigerated 38. Empty for ambient.",
     )
 
     # --- Freight --------------------------------------------------------------
     pallets: int | None = Field(default=None, description="Whole pallets. Every real order so far has been whole numbers.")
-    cases: int | None = Field(default=None, description="Total case (carton) count, a whole number.")
+    cases: int | None = Field(default=None, description="Total case (box or carton) count, a whole number.")
+    # Bags are their own field: flexible sacks handle and classify differently from
+    # rigid cases, so a bag count must never land in `cases`. A stopgap until more
+    # packaging types show up (then: a piece count plus a packaging type).
+    bags: int | None = Field(
+        default=None,
+        description="Total bag (sack) count, a whole number, when the order counts in bags. "
+                    "Bags are not cases: never put a bag count in cases.",
+    )
     weight_lb: float | None = Field(default=None, description="Total weight in pounds; the gross weight when both gross and net are given.")
 
     # --- Rate -----------------------------------------------------------------
@@ -267,10 +276,13 @@ Rules:
 - Use only what the order text says (body, subject line, attachments). Never fill a value
   from what a customer usually does, and never invent one. Empty (null) beats a guess.
 - Required fields: refs, origin, destination, ready_date or pickup_date, temperature (temp_mode),
-  pallets, cases, weight_lb. When one is missing or only partly given, leave the missing part empty and
+  pallets, a count (cases, or bags), weight_lb. When one is missing or only partly given, leave the missing part empty and
   add a question for the customer with field set to that field's name. Examples: no case count
   -> field "cases"; origin named only as a facility with no street address -> field "origin";
   no consignee name -> field "destination"; no temperature at all -> field "temp_mode".
+- Counts: cases are rigid boxes or cartons; bags (sacks) are not cases. A count given in bags goes
+  in bags with cases empty, and needs no question. Ask for a case count only when the order gives
+  neither.
 - refs: every PO, SO and freight PO number in the order, as written, without labels.
 - Dates are YYYY-MM-DD. Resolve relative dates ("Friday") from received_date.
 - Pickup: a date the customer gives for when freight is ready, or a pickup date they request, is
@@ -286,13 +298,14 @@ Rules:
   DELIVERY_TO_BE_SCHEDULED. Never ask the customer about delivery.
 - Temperature is a range. Frozen with "-10" (or "set reefer at -10") is temp_min_f -10,
   temp_max_f 0. A range the order states is used as stated. "REFER" or "reefer" with no other
-  temperature word means refrigerated; "REFER (FROZEN)" means frozen. "Dry" or "dry van" is
-  temp_mode dry with both temperatures empty. If the order says frozen or refrigerated but
+  temperature word means refrigerated; "REFER (FROZEN)" means frozen. "Dry", "dry van",
+  "ambient" or "no temp needed" is temp_mode ambient with both temperatures empty (an order
+  that simply never mentions temperature is NOT ambient: ask). If the order says frozen or refrigerated but
   gives no number, use the company standard (frozen: -10 to 0; refrigerated: 34 to 38), add
   flag TEMP_STANDARD_ASSUMED, and add a confirmation with field "temp_mode" stating the range
   used, e.g. "We'll run this frozen at -10°F to 0°F. Let us know if that's not right." If
-  neither mode nor number is stated, or the wording doesn't say which mode (e.g. "ambient"),
-  leave all three empty and ask.
+  neither mode nor number is stated, or the wording doesn't say which mode (e.g. only "temp
+  controlled"), leave all three empty and ask.
 - Weight: when both gross and net weight are given, use the gross weight (with pallets).
 - Rate: rate_usd is only an AGREED rate: one the customer accepted in the thread, a freight price
   on the customer's own PO or freight confirmation, or a rate stated for a load already picked up.

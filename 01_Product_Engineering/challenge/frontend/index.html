@@ -149,6 +149,7 @@
         row(tb, "Temperature", temp);
         row(tb, "Pallets", r.pallets);
         row(tb, "Cases", r.cases);
+        if (r.bags != null) row(tb, "Bags", r.bags);
         row(tb, "Weight (lb)", r.weight_lb !== null ? r.weight_lb.toLocaleString() : null);
         row(tb, "Rate (USD)", r.rate_usd !== null ? `$${r.rate_usd.toLocaleString()}` : null);
         // Only shown when there is one: a quote the customer hasn't accepted yet.
