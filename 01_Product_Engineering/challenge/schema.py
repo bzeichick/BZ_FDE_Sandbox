@@ -13,11 +13,15 @@ How to read it (pydantic basics):
     later by the model and by agents picking this as a tool (Week 5).
 """
 
+import json
 from datetime import date
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError, computed_field
 
+# All imports live at the top (reviewer feedback): Python's default, and nothing
+# here is picked at runtime, which is the one good reason to import inside a function.
+from llm import complete
 
 # ---------------------------------------------------------------------------
 # What goes in
@@ -45,25 +49,33 @@ class Request(BaseModel):
 # ---------------------------------------------------------------------------
 
 # A Literal is a list of the ONLY values allowed. Anything else is rejected.
-TempMode = Literal["frozen", "refrigerated"]
+# "dry" added in Week 2: operations said every order is "Dry" or "Temp Controlled".
+TempMode = Literal["frozen", "refrigerated", "dry"]
 
 # Flags are internal notes for the order desk, not questions for the customer.
-# Start small; add a name here when a real order needs a new one.
+# What each one MEANS is written in the `flags` field's description below, not in
+# comments here: the model reads descriptions (they go out in the JSON schema)
+# but never sees a comment. Add a name here when a real order needs a new one.
 Flag = Literal[
-    "TEMP_STANDARD_ASSUMED",  # order said frozen/refrigerated but no number; company standard range used — confirm
-    "RATE_LOOKUP_NEEDED",     # no rate in the order; needs a rate lookup or a quote
-    "DELIVERY_TO_BE_SCHEDULED",  # no delivery date given; the company schedules it and advises the customer
-    "PICKUP_TO_BE_SCHEDULED",    # no firm pickup date; the company schedules pickup around its own runs
+    "TEMP_STANDARD_ASSUMED",
+    "RATE_LOOKUP_NEEDED",
+    "REQUOTE_NEEDED",
+    "DELIVERY_TO_BE_SCHEDULED",
+    "PICKUP_TO_BE_SCHEDULED",
 ]
+
+# Operations' own words for the two kinds of order: a "Potential Order" is still
+# at the quote stage; a "Valid Order" has an agreed rate (the go signal).
+OrderStatus = Literal["potential", "valid"]
 
 
 class Location(BaseModel):
     """A pickup or delivery place. Every part may be empty — orders often
     give a city but no street, or a company name only."""
 
-    company: str | None = None
-    street: str | None = None
-    city: str | None = None
+    company: str | None = Field(default=None, description="Business name at that place: the shipper, cold storage or consignee.")
+    street: str | None = Field(default=None, description="Street address, e.g. '300 E. Lake Dr.'. Empty when only a facility name or city is given.")
+    city: str | None = Field(default=None, description="City name.")
     state: str | None = Field(default=None, description="Two-letter US state code, e.g. 'CA'.")
     zip: str | None = Field(default=None, description="5-digit ZIP code, kept as text so leading zeros survive.")
 
@@ -73,6 +85,26 @@ class CustomerQuestion(BaseModel):
 
     field: str = Field(description="Which Response field is missing, e.g. 'origin' or 'delivery_date'.")
     question: str = Field(description="The question to ask the customer, in plain words.")
+
+
+class Confirmation(BaseModel):
+    """Something we assumed, told to the customer as a statement. Unlike a
+    question it needs no reply: the customer only answers if it's wrong."""
+
+    field: str = Field(description="Which Response field was assumed, e.g. 'temp_mode'.")
+    statement: str = Field(
+        description="What we will do, in plain words, e.g. \"We'll run this frozen at -10°F to 0°F. "
+                    "Let us know if that's not right.\""
+    )
+
+
+class FieldChange(BaseModel):
+    """A value a later message in the thread changed, e.g. 300 pallets -> 100.
+    Kept so the order desk sees what moved instead of only the final number."""
+
+    field: str = Field(description="Which Response field changed, e.g. 'pallets' or 'ready_date'.")
+    was: str = Field(description="The earlier value, as written in the thread.")
+    now: str = Field(description="The latest value, as written in the thread.")
 
 
 # ---------------------------------------------------------------------------
@@ -128,28 +160,71 @@ class Response(BaseModel):
 
     # --- Temperature ----------------------------------------------------------
     # Step 12 feedback: temperature is a range ("zero to negative ten"), not one number.
-    temp_mode: TempMode | None = None
+    temp_mode: TempMode | None = Field(
+        default=None,
+        description="frozen, refrigerated, or dry (dry freight has no temperature range). "
+                    "Empty if the order doesn't say.",
+    )
     temp_min_f: float | None = Field(
         default=None,
-        description="Coldest allowed temperature in °F. Frozen with -10 stated or assumed -> -10.",
+        description="Coldest allowed temperature in °F, as stated; the company standard is "
+                    "frozen -10, refrigerated 34. Empty for dry.",
     )
     temp_max_f: float | None = Field(
         default=None,
-        description="Warmest allowed temperature in °F. Frozen -> 0; refrigerated -> 38.",
+        description="Warmest allowed temperature in °F, as stated; the company standard is "
+                    "frozen 0, refrigerated 38. Empty for dry.",
     )
 
     # --- Freight --------------------------------------------------------------
     pallets: int | None = Field(default=None, description="Whole pallets. Every real order so far has been whole numbers.")
-    cases: int | None = None
-    weight_lb: float | None = Field(default=None, description="Total weight in pounds.")
-    rate_usd: float | None = Field(default=None, description="Agreed rate in US dollars, if the order states one.")
+    cases: int | None = Field(default=None, description="Total case (carton) count, a whole number.")
+    weight_lb: float | None = Field(default=None, description="Total weight in pounds; the gross weight when both gross and net are given.")
+
+    # --- Rate -----------------------------------------------------------------
+    # Two fields, because a number in the thread isn't always an agreed price.
+    # Only rate_usd goes into the TMS as the charge; quoted_rate_usd is for follow-up.
+    rate_usd: float | None = Field(
+        default=None,
+        description="The AGREED rate in US dollars: accepted by the customer in the thread, the freight "
+                    "price on the customer's own PO or freight confirmation, or a rate stated for a load "
+                    "already picked up. Empty otherwise.",
+    )
+    quoted_rate_usd: float | None = Field(
+        default=None,
+        description="A rate the brokerage quoted that the customer has not accepted yet. Kept so the "
+                    "desk can follow up; it is not the agreed rate.",
+    )
+
+    # --- Changes in the thread ----------------------------------------------
+    changes: list[FieldChange] = Field(
+        default_factory=list,
+        description="Every value a later message in the thread changed (e.g. pallets 300 -> 100). "
+                    "The fields above hold the latest value.",
+    )
 
     # --- What a person needs to know ----------------------------------------
     questions: list[CustomerQuestion] = Field(
         default_factory=list,
         description="One question per required field that the order leaves out.",
     )
-    flags: list[Flag] = Field(default_factory=list)
+    confirmations: list[Confirmation] = Field(
+        default_factory=list,
+        description="Statements to send the customer about values we assumed (today: a standard "
+                    "temperature range). They need no reply, unlike questions.",
+    )
+    flags: list[Flag] = Field(
+        default_factory=list,
+        description="Notes for the order desk, never sent to the customer. "
+                    "TEMP_STANDARD_ASSUMED: the order said frozen or refrigerated with no number, so the "
+                    "company standard range was used. "
+                    "RATE_LOOKUP_NEEDED: the thread states no rate at all; look one up or quote. "
+                    "REQUOTE_NEEDED: pallets or weight changed after a rate was given, so that rate no "
+                    "longer applies. "
+                    "DELIVERY_TO_BE_SCHEDULED: no delivery date, or only a vague window; the company "
+                    "schedules delivery and advises the customer. "
+                    "PICKUP_TO_BE_SCHEDULED: no firm pickup date; the company schedules pickup on its own runs.",
+    )
 
     # The "no answer" switch. Different from an empty field: an empty field
     # means "we got most of it, ask about this piece". needs_human means
@@ -157,12 +232,23 @@ class Response(BaseModel):
     needs_human: bool = Field(
         default=False,
         description="True when the text isn't a single new order (e.g. a status update, "
-                    "or several shipments) or origin, destination or pickup date can't be determined.",
+                    "or several shipments) or origin or destination can't be determined.",
     )
     needs_human_reason: str | None = Field(
         default=None,
         description="Why it was handed to a person, in one short sentence.",
     )
+
+    # --- Worked out in code, not by the model ---------------------------------
+    # order_status follows from rate_usd alone, so it's computed here rather than
+    # asked of the model: the model can't get it wrong or let it disagree with the
+    # rate. @computed_field puts it in every JSON reply, but leaves it out of the
+    # schema sent to the model, and golden lines that include it still load.
+    @computed_field
+    @property
+    def order_status(self) -> OrderStatus:
+        """potential = quote stage, no agreed rate yet. valid = the rate is agreed: the go signal."""
+        return "valid" if self.rate_usd is not None else "potential"
 
 
 # ---------------------------------------------------------------------------
@@ -199,13 +285,27 @@ Rules:
   and add flag DELIVERY_TO_BE_SCHEDULED. No delivery date at all: leave both empty and add
   DELIVERY_TO_BE_SCHEDULED. Never ask the customer about delivery.
 - Temperature is a range. Frozen with "-10" (or "set reefer at -10") is temp_min_f -10,
-  temp_max_f 0. A range the order states is used as stated. If the order says frozen or
-  refrigerated but gives no number, use the company standard (frozen: -10 to 0;
-  refrigerated: 34 to 38) and add flag TEMP_STANDARD_ASSUMED. If neither mode nor number
-  is stated, leave all three empty and ask.
+  temp_max_f 0. A range the order states is used as stated. "REFER" or "reefer" with no other
+  temperature word means refrigerated; "REFER (FROZEN)" means frozen. "Dry" or "dry van" is
+  temp_mode dry with both temperatures empty. If the order says frozen or refrigerated but
+  gives no number, use the company standard (frozen: -10 to 0; refrigerated: 34 to 38), add
+  flag TEMP_STANDARD_ASSUMED, and add a confirmation with field "temp_mode" stating the range
+  used, e.g. "We'll run this frozen at -10°F to 0°F. Let us know if that's not right." If
+  neither mode nor number is stated, or the wording doesn't say which mode (e.g. "ambient"),
+  leave all three empty and ask.
 - Weight: when both gross and net weight are given, use the gross weight (with pallets).
-- Rate: a rate stated anywhere in the thread (a quoted rate, a PO price) goes in rate_usd. If no
-  rate is stated, leave it empty and add flag RATE_LOOKUP_NEEDED. Never ask the customer for a rate.
+- Rate: rate_usd is only an AGREED rate: one the customer accepted in the thread, a freight price
+  on the customer's own PO or freight confirmation, or a rate stated for a load already picked up.
+  A rate the brokerage quoted that the customer hasn't accepted goes in quoted_rate_usd, with
+  rate_usd empty. If the thread states no rate at all, leave both empty and add flag
+  RATE_LOOKUP_NEEDED. Never ask the customer for a rate.
+- Corrections: email threads usually show the newest message first, so go by each message's
+  date, not its position. When a later message changes a value (pallets, cases, weight, a date,
+  a location, the temperature), use the latest value and add an entry to changes with the field
+  name, the earlier value as written (was) and the latest (now). If pallets or weight changed
+  AFTER a rate was given, that rate is stale: leave rate_usd and quoted_rate_usd empty and add
+  flag REQUOTE_NEEDED instead of RATE_LOOKUP_NEEDED. A rate given after the change is for the new
+  count and is used normally.
 - Quote requests are treated as orders: fill the fields the same way.
 - needs_human is true only when (a) the text is not a single new order -- for example the latest
   message says the shipment was already picked up or delivered, or it covers several shipments --
@@ -223,14 +323,6 @@ def solve(request: Request) -> Response:
     against Response, retry once with the error if it doesn't fit, and hand it to a
     person if it still doesn't. It never returns something that fails the contract.
     """
-    import json
-
-    from pydantic import ValidationError
-
-    # Imported here, not at the top, so `import schema` stays light: Week 2's data
-    # generation needs these types without loading the model client.
-    from llm import complete
-
     system = INTAKE_RULES + json.dumps(Response.model_json_schema())
     message = f"received_date: {request.received_date.isoformat()}\n\nORDER:\n{request.order_text}"
 

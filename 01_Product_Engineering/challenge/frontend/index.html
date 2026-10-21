@@ -99,6 +99,7 @@
       // ---- Order intake ---------------------------------------------------
       const FLAG_LABELS = {
         RATE_LOOKUP_NEEDED: "Rate lookup needed",
+        REQUOTE_NEEDED: "Re-quote needed: count or weight changed",
         DELIVERY_TO_BE_SCHEDULED: "Delivery to be scheduled",
         TEMP_STANDARD_ASSUMED: "Standard temp assumed: confirm",
         PICKUP_TO_BE_SCHEDULED: "Pickup to be scheduled",
@@ -138,6 +139,7 @@
         const temp = r.temp_mode ? `${r.temp_mode}${range ? `, ${range}` : ""}` : null;
         const table = document.createElement("table");
         const tb = table.createTBody();
+        row(tb, "Order status", r.order_status === "valid" ? "Valid order (rate agreed)" : "Potential order (no agreed rate yet)");
         row(tb, "References", r.refs.length ? r.refs.join(", ") : null);
         row(tb, "Pickup from", place(r.origin));
         row(tb, "Deliver to", place(r.destination));
@@ -149,7 +151,12 @@
         row(tb, "Cases", r.cases);
         row(tb, "Weight (lb)", r.weight_lb !== null ? r.weight_lb.toLocaleString() : null);
         row(tb, "Rate (USD)", r.rate_usd !== null ? `$${r.rate_usd.toLocaleString()}` : null);
+        // Only shown when there is one: a quote the customer hasn't accepted yet.
+        if (r.quoted_rate_usd != null) row(tb, "Quoted, not accepted", `$${r.quoted_rate_usd.toLocaleString()}`);
         out.appendChild(table);
+
+        // What a later message in the thread changed, e.g. "pallets: 300 → 100".
+        list(out, "Changed later in the thread", r.changes, (c) => `${c.field}: ${c.was} → ${c.now}`);
 
         if (r.flags.length) {
           const tags = document.createElement("div");
@@ -180,6 +187,24 @@
           }
           out.appendChild(ol);
         }
+
+        // Things we assumed, told to the customer; no reply needed.
+        list(out, "Confirmations to send (no reply needed)", r.confirmations, (c) => c.statement);
+      }
+
+      // A heading plus a numbered list, skipped entirely when there's nothing to show.
+      function list(out, title, items, text) {
+        if (!items || !items.length) return;
+        const h = document.createElement("h2");
+        h.textContent = title;
+        const ol = document.createElement("ol");
+        ol.className = "questions";
+        for (const item of items) {
+          const li = document.createElement("li");
+          li.textContent = text(item);
+          ol.appendChild(li);
+        }
+        out.append(h, ol);
       }
 
       $("go").addEventListener("click", async () => {

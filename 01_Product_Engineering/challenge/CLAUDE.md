@@ -252,6 +252,18 @@ wants a field the schema does not have, that is a Step 5 change first.
 - Not every model accepts every setting (Claude Sonnet 5 rejects
   `temperature=0`). Model calls in `llm.py` pass `drop_params=True`, so an
   unsupported setting is dropped instead of failing the call.
+- `# type: ignore` only for a known library quirk (Gradio's `-> str` on a
+  streaming endpoint, LiteLLM's many return types), with a comment above it
+  saying which. Anything else gets fixed, not silenced.
+- Imports go at the top of the file, unless the module is chosen at runtime.
+- The intake rules exist twice: `INTAKE_RULES` in `schema.py` (what the app
+  does) and the Week 2 generation prompt (what the test data expects). A rule
+  changed in one is changed in the other, and in the charter's In → Out row,
+  before the next generation run or eval.
+- What a model reads about a field goes in `Field(description=...)`, never only
+  in a `#` comment: descriptions are sent to the model, comments are not.
+- A field that follows from other fields (like `order_status` from `rate_usd`)
+  is computed in code, not asked of the model.
 
 ---
 

@@ -23,6 +23,11 @@ MODEL = os.getenv("LLM_MODEL", "gpt-4.1-mini")
 API_BASE = os.getenv("LLM_API_BASE")  # only needed for self-hosted / gateway endpoints
 EXTRA_HEADERS = json.loads(os.getenv("LLM_EXTRA_HEADERS") or "{}")
 
+# Give up on a model call after 60 s and retry twice, so a slow or down provider
+# returns an error the page can show instead of hanging until Nginx times out.
+TIMEOUT_S = 60
+NUM_RETRIES = 2
+
 SYSTEM_PROMPT = os.getenv(
     "SYSTEM_PROMPT",
     "You are a helpful assistant. Be concise and concrete.",
@@ -69,8 +74,12 @@ def stream_reply(message: str, history: list[dict] | None = None):
     conversation only exists because we keep sending it.
     """
     reply = ""
-    for chunk in completion(model=MODEL, messages=_build_messages(message, history),
-                            stream=True, **_provider_kwargs()):
+    # LiteLLM's completion() is typed as returning one of several objects (a stream,
+    # a full reply, or an async one), so the checker can't see that stream=True means
+    # a stream. `type: ignore` covers that library quirk only.
+    for chunk in completion(model=MODEL, messages=_build_messages(message, history),  # type: ignore
+                            stream=True, timeout=TIMEOUT_S, num_retries=NUM_RETRIES,
+                            **_provider_kwargs()):
         piece = chunk.choices[0].delta.content
         if piece:
             reply += piece
@@ -89,9 +98,11 @@ def complete(message: str, system: str, history: list[dict] | None = None) -> st
     instead of failing the whole call.
     """
     response = completion(model=MODEL, messages=_build_messages(message, history, system),
-                          temperature=0, drop_params=True, **_provider_kwargs())
+                          temperature=0, drop_params=True, timeout=TIMEOUT_S,
+                          num_retries=NUM_RETRIES, **_provider_kwargs())
     # Print what each call actually used, so cost per order is measured, not guessed (Step 13).
     usage = getattr(response, "usage", None)
     if usage:
         print(f"[tokens] model={MODEL} in={usage.prompt_tokens} out={usage.completion_tokens}", flush=True)
-    return response.choices[0].message.content or ""
+    # Same LiteLLM typing quirk as above: without stream=True this is a full reply.
+    return response.choices[0].message.content or ""  # type: ignore

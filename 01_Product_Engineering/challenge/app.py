@@ -10,7 +10,6 @@ from pathlib import Path
 
 from fastapi.responses import HTMLResponse
 from gradio import Server
-
 from pydantic import ValidationError
 
 from llm import stream_reply
@@ -26,10 +25,13 @@ FRONTEND = Path(__file__).parent / "frontend" / "index.html"
 # output components and silently returns nothing. Ask us how we know.
 
 
+# `chat` streams (yields) its reply, so a type checker expects a generator type,
+# but Gradio needs `-> str` to know the endpoint returns text. Gradio wins; the
+# two `type: ignore`s silence that one known mismatch and nothing else.
 @app.api(name="chat")
-def chat(message: str, history: list | None = None) -> str:
+def chat(message: str, history: list | None = None) -> str:  # type: ignore
     """Stream a reply to one user message."""
-    yield from stream_reply(message, history)
+    yield from stream_reply(message, history)  # type: ignore
 
 
 @app.api(name="draft_shipment_from_order")
@@ -41,13 +43,19 @@ def draft_shipment_from_order(order_text: str, received_date: str) -> str:
     received_date: the date the order arrived, YYYY-MM-DD (resolves "pick up Friday").
 
     Returns a JSON object (the Response in schema.py): refs, origin, destination,
-    pickup and delivery dates, temperature, pallets, cases, weight and rate; questions
-    to send the customer for anything missing; flags for the order desk; and
-    needs_human=true when the order should not be entered without a person checking.
+    ready, pickup and delivery dates, temperature, pallets, cases, weight; the agreed
+    rate and any rate quoted but not yet accepted; order_status (potential or valid);
+    values a later message changed; questions to send the customer for anything
+    missing, and confirmations (no reply needed) for anything assumed; flags for the
+    order desk; and needs_human=true when the order should not be entered without a
+    person checking.
     Never guesses: anything the order doesn't state is left empty.
     """
     try:
-        request = Request(order_text=order_text, received_date=received_date)
+        # model_validate takes the raw text and lets pydantic turn "2026-10-21" into a
+        # date (or reject it). Same check as Request(...), but the type checker no
+        # longer reads it as passing text where a date belongs.
+        request = Request.model_validate({"order_text": order_text, "received_date": received_date})
     except ValidationError:
         # A bad date or empty input is answered in the same shape, not with a crash,
         # so every caller -- the web page, the eval harness, an agent -- handles one format.
