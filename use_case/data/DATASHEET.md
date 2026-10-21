@@ -16,7 +16,7 @@
 | Combinations | 552 (540 enterable + 12 route-to-person) |
 | Generated | 553 (one correction combination returned 2 rows) |
 | After dedupe (character 4-gram Jaccard 0.7 on the input) | 553 — 0 dropped |
-| Schema-valid | 551 — 2 rejected: for "no temperature stated" profiles the generator invented non-reefer modes ("ambient", "dry"), which US Perishables doesn't move |
+| Schema-valid | 551 — 2 rejected for temperature modes "dry" and "ambient". Step 6 showed US Perishables does move dry freight, so the schema was stricter than real orders; "dry" is added in Week 3 |
 | Dead combinations | 0 — 2 replies were unparseable on the first attempt; both combinations recovered on retry |
 | Removed after reading 50 rows | 20 - see "What I removed" below | 
 | **Final** | **531** | 
@@ -70,6 +70,7 @@ Routing is what the second run tests; field extraction is covered by the first.
 - **Customer Profiles.** Labels assume text-only extraction and don't use customer profiles, and nickname and implied rows will eventually need re-labelling.
 - **Real formats.** Scanned BOLs, images, and PDFs that need text extraction aren’t represented; attachments appear only as clean pasted text.
 - **Web-form orders.** The charter's second channel, the order form on the website, isn't generated; the arrival axis covers email only.
+- **Order status and commodity.** No field says whether an order is still a quote (potential) or approved (valid), and none records the commodity; operations needs both to decide whether an order can be quoted. No row is dry freight.
 - **Reproducibility.** Provider-default sampler, no seed sent to the model. Rerunning the full dataset will produce different rows.
 - **Repeated Invented Details.** The current model used the same PO (BH4471) in 29 rows, the same contact (Dana) in 163 rows, and send times (8-9am) in 358.
 - **Answer-key labels for three rules.** About a third of the 61 remaining firm-pickup rows may repeat the demo error; 37 nickname or implied rows have no origin question; and 9 correction rows keep a rate that the re-quote rule (added after the Step 6 review) would leave empty. Don't score the system against these labels until they're fixed.
