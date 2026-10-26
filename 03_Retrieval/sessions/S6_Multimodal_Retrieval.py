@@ -1031,6 +1031,15 @@ def _(mo):
     in your own corpus — and what about that content decides it.
 
     **Answer:**
+    The three ways: (A) caption → text: a vision model parses each image once and the text is indexed; (B) one shared CLIP space for pixels and words; (C) separate text and image stores, merged by rank.
+
+    I’d start with A. My non-text content is text rendered as pixels: 375 scanned PDFs (bills of lading, POs, appointment confirmations, some with handwritten corrections) and appointment-portal screenshots in email threads. Three things about that content decide it:
+
+    Users search by identifier. The desk asks about a PO, a pickup ref or a confirmation number, which is exact text, the q01/q02 kind. CLIP can find “a scanned bill of lading”; it can’t find the one with PO 6152. Only a parse into text, indexed with BM25, matches an identifier.
+    The information isn’t visual. Nobody asks what a BOL looks like, so B’s and C’s one advantage (Session 6’s “visual” questions) never comes up. Meanwhile B would happily return signature logos, which are most of my images by count.
+    The batch is small, and the parse can be checked. 375 documents is one parse job, not an ongoing cost. And I have an answer key: every scanned BOL belongs to a shipment whose PO, pallets, weight and temperature are already in the rate confirmations. Any identifier the vision model reads can be compared field by field against the TMS record, which is Session 6’s parse check with real ground truth.
+
+    Where A could still fail: handwritten overrides. A parser that reads “8 pallets” when someone wrote “6” over it produces fluent, indexable, wrong text. So the parse has to keep the uncertainty (“printed 8, handwritten 6”), and any document flagged as handwritten goes to a person rather than straight into the index.
 
     ### ❓ Question #6
 
@@ -1042,6 +1051,15 @@ def _(mo):
     corpus, and what narrows it first*.
 
     **Answer:**
+    Weakness 1: the modality gap. In a shared CLIP space, text vectors cluster apart from image vectors, so a text question sits closer to any text than to the right image. That’s why the memo outranked the latency chart in the unified ranking, even though the image search alone ranked the chart first. It’s a ranking failure: the right item was found, then lost in a mixed list.
+    What compensates: keeping a store per modality and merging by rank (Strategy C), or an images-only filter on the shared space. Each modality competes only against its own kind, and rank fusion combines lists whose raw scores can’t be compared.
+
+    Weakness 2: an embedding can find a chart but can’t read it. CLIP’s vector says roughly “a bar chart about latency by region.” It doesn’t contain “Coast: 240 ms.” Retrieval and reading are different operations, so even a perfect ranking returns a picture, not an answer.
+    What compensates: the answer step, a vision model that reads the retrieved pixels, with the parse check verifying any number it reads before it’s trusted.
+
+    Which model never sees the whole corpus, and what narrows it first: the vision model, the expensive reader. It only sees the top three candidates. The cheap embedders narrow first (the text store and CLIP’s image store, fused by rank), so the slow, costly model reads three images rather than the whole collection. Narrow with something cheap, read with something slow.
+
+    For my corpus: the same shape applies, with different parts. BM25 over the parsed text of the scans narrows by identifier (the PO or pickup ref), and a vision model reads only the few matching scans, and only when a field is in doubt, such as a handwritten override. It never sees all 375.
     """)
     return
 
@@ -1185,6 +1203,15 @@ def _(mo):
     would verify a model's reading of them*.
 
     **Answer:**
+    Why pixels, not the caption. A caption is a copy: written once, before any question existed, by a parser asked to describe content. It can be wrong in two ways that retrieval never notices. It can misread: Task 2’s parse check exists because a model that reads 27 as 21 produces a fluent, indexable caption that’s wrong. And it can leave out the detail a later question needs, which is the caption bottleneck. The parse check also showed a third problem: “invented” figures, such as derived totals that appear in no chart, which a check can flag but can’t judge. So the caption is good enough to find the chart, but the answer should come from the source. Re-reading the pixels at answer time means a wrong caption costs a missed search at worst, never a wrong number in the answer.
+
+    My users’ identifiers make this sharper. The desk searches by POs (PO 6152/SO 70433), pickup refs (SO-073902), confirmation numbers (O385141038), and the figures on a bill of lading: pallets, weight, temperature, appointment time. These are exactly what OCR and vision models misread, and the errors are tiny: O/0, I/1/7, S/5, B/8. A caption with I-SO050414 misread as I-SO05O414 looks fine and silently fails to match. A handwritten override is worse: the model may read the printed value and miss the correction.
+
+    What would verify a reading:
+
+    Cross-check against an independent record. Every scanned BOL belongs to a shipment whose PO, pickup ref, pallets, weight and temperature are already in the rate confirmation. A read that doesn’t match the TMS record is flagged, not trusted. This is Task 2’s parse check with real ground truth instead of a hand-made answer key.
+    Format checks per customer. Each customer’s references follow a pattern (one customer’s pickup refs are a prefix plus six digits). A read that breaks the pattern is suspect before any lookup.
+    Handwriting goes to a person. When the page shows a handwritten change, the reading keeps both values (“printed 8, handwritten 6”) and is routed to someone on the desk, not into the index or an answer.
 
     ---
     ## Task 7 — Measure it, and probe it with your own queries
@@ -1522,6 +1549,16 @@ def _(mo):
     right — and what does that say about adding a lexical index alongside?
 
     **Answer:**
+    Why raw scores are the wrong tool. Similarity scores from different models are on different, uncalibrated scales. A cosine of 0.31 from the text embedder and 0.27 from CLIP don’t mean “the first is a slightly better match.” CLIP’s text-to-image similarities sit in a narrow, low band, while text-to-text similarities sit higher. That’s partly the modality gap: even inside one shared space, text and images cluster apart. Sorting the merged list by raw score just lets the store with the inflated scale win every slot. Rank is the only thing the two lists have in common: “first in its list” means the same thing in both. Reciprocal Rank Fusion scores each item 1/(k + rank) in every list it appears in and sums those, so neither store’s scale matters.
+
+    My ten queries. All ten contain a number, a code or a name, and they split into two groups:
+
+    Codes (4): q01 (PO 6152), q02 (pickup ref SO-073902), q07 (PO 318806-00), q08 (PO418)
+    Names only (6): q03 (Brightloaf, Modesto), q04 (Sunridge Raw, Corona, Fontana), q05 (Seoul Pantry), q06 (Harbor Lane), q09 (Redstone Cold Storage), q10 (Bayview Wholesale)
+
+    Which list is likely to be right. Between the two in Strategy C, the text list, every time. CLIP can’t read a PO off a scan, and the image list has no idea which bill of lading carries PO 6152. But the text list’s dense embeddings are only partly right either. They blur exact tokens: a PO number and its neighbour (553056 vs 553065) embed almost identically, and to a dense model a customer name is just a vague topic.
+
+    What that says about a lexical index: add one. BM25 matches the exact token or it doesn’t, and that’s what all four code queries need. It also handles the name queries better when names are stored inconsistently (one location under five spellings, a customer stored as both “Sunridge Raw” and “Sunridge Raw Dog”), since partial token overlap still scores. Lexical alone isn’t enough, though. q03’s “reefer” appears in no record and only dense can bridge it to “38°F”, and q10’s customer name shares a word with an unrelated pickup city, so lexical matching alone pulls in the wrong records. That’s the argument for hybrid retrieval: BM25 and dense, fused by rank. The codes need the lexical list, the vocabulary questions need the dense list, and RRF combines them without having to trust either one’s scores.
 
     ---
     # Conclusion

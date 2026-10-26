@@ -355,3 +355,83 @@ def solve(request: Request) -> Response:
         needs_human=True,
         needs_human_reason="Couldn't read this order reliably; please enter it by hand.",
     )
+
+# ---------------------------------------------------------------------------
+# Week 3: questions about the desk's own history (a second contract)
+# ---------------------------------------------------------------------------
+# The order contract above is unchanged. The desk's real questions in TC3 turned
+# out to be lookups into its own history ("did we book PO 6152?", "where does
+# this customer usually pick up?"), not order reading, so they get their own
+# In -> Out. In ColdLade this is the Link and Enrich steps; in Week 5 the order
+# pipeline calls it as a tool. See use_case/decisions.md, Week 3.
+
+# What kind of record a source is. "profile" is a generated customer or facility
+# page (counts and shares, with the shipment IDs behind every number).
+SourceKind = Literal["shipment", "email", "attachment", "profile"]
+
+
+class HistoryQuestion(BaseModel):
+    """One question from the order desk about past shipments, emails or customers."""
+
+    question: str = Field(
+        min_length=1,
+        description="The question as the person asked it, e.g. 'Did we book PO 6152?'",
+    )
+    as_of: date | None = Field(
+        default=None,
+        description="Answer as if today were this date. Empty means today. "
+                    "Resolves 'last week' and excludes records dated after it.",
+    )
+
+
+class Source(BaseModel):
+    """One record the answer relied on, with the line that supports it."""
+
+    record_id: str = Field(
+        description="The record's ID: a TMS shipment ID ('84449'), an email ('msg:16250'), "
+                    "an email's attachment ('msg:16250#att'), or a profile page name.",
+    )
+    kind: SourceKind = Field(description="What kind of record this is.")
+    quote: str = Field(
+        description="The exact text from the record that supports the answer, copied, "
+                    "not paraphrased, e.g. 'Dock hours are 6 am to 3 pm CST'.",
+    )
+
+
+class HistoryAnswer(BaseModel):
+    """An answer from the desk's own records, with the records it came from.
+
+    Rule: say only what the sources show. If the records don't answer the
+    question, decline and list what was searched, rather than answering from
+    the nearest record that looks related.
+    """
+
+    answer: str = Field(description="The answer in one to three plain sentences.")
+    sources: list[Source] = Field(
+        default_factory=list,
+        description="Every record the answer relied on. Empty only when declined.",
+    )
+    declined: bool = Field(
+        default=False,
+        description="True when the records don't answer the question (e.g. a customer "
+                    "rate, which is not on record). A decline is a valid answer.",
+    )
+    searched: list[str] = Field(
+        default_factory=list,
+        description="What was searched, in plain words (e.g. 'shipments for Bayview: 0 found'), "
+                    "so a 'no' or 'not on record' can be checked.",
+    )
+    as_of: date = Field(description="The date this answer is true for.")
+    partial: bool = Field(
+        default=False,
+        description="True if the search stopped before it finished (turn budget used up); "
+                    "the answer may be incomplete.",
+    )
+
+
+def answer_history(question: HistoryQuestion) -> HistoryAnswer:
+    """Answer one question from the desk's history, naming the records it came from.
+
+    Filled in at Step 4 with the retrieval technique Step 3 picks.
+    """
+    raise NotImplementedError

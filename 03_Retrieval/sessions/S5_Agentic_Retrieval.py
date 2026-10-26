@@ -303,6 +303,30 @@ def _(mo):
     page names that make the second approach possible at all?
 
     **Answer:**
+    Exact text. Five of my ten turn on an identifier or figure that has to match exactly:
+
+    q01: a PO that’s stored inside a combined field (“PO 6152/SO 70433”). A substring search also hits a file hash and a longer number, so the match has to be on a whole token.
+    q02: a pickup ref, which lives in a different field from the customer PO.
+    q07 and q08: a PO plus times that have to be compared (12:30 vs. 1pm, 4pm vs. a 3pm close).
+    q09: a location whose address is stored five different ways.
+
+    Two go the other way, with the question’s key word appearing nowhere in the records: q03 (“reefer” — the records only say 38°F) and q04 (“our rate” — the records only hold carrier cost). Exact text can’t help those, and on q04 the closest exact match is the wrong answer.
+
+    More than one record. Seven of ten:
+
+    Pairs: q07 (an email thread plus the shipment it booked) and q08 (two emails in one thread, one of which also contains the wrong hours).
+    Sets: q03 needs four shipments, and q09 needs eight customers, one shipment each.
+    Spreads: q05 and q06 can only say “usually” from a customer’s whole history.
+    Proof of absence: q10 needs enough coverage to show quote requests but no bookings.
+
+    Only q01 and q02 are single-record, and q04 is zero (a decline). q09 needs 8, so top-5 can’t pass it.
+
+    Headings and stable page names. Not as the corpus stands.
+
+    Shipments have stable IDs (shipment_id), but each is a flat JSON record with no headings.
+    Emails are threads with quoted replies, every message stored twice, and subject lines that go stale (q07’s subject keeps the superseded date for 15 messages).
+    Most important: there are no customer or location pages and no index, and that’s exactly the level four of my questions ask at (q05, q06, q09, q10).
+    The names aren’t stable either: one address in five spellings, temperatures stored in two orders, and one customer recorded under the wrong name.
 
     ---
     ## Task 2 — Use one agent loop for both approaches
@@ -416,6 +440,22 @@ def _(mo):
     it says — and which approach makes that easier to do?
 
     **Answer:**
+    Keep in every response:
+
+    Sources as records a person can open: shipment IDs, and emails by date and sender, each with the line that supports the claim. For q08 that means quoting “Dock hours are 6 am to 3 pm CST” from the delivery section, not just “msg 16250.” The same email also lists the pickup’s 9–2 hours, and only the quoted line shows which hours the answer used.
+    Which record won when records disagree. For q07: “receiver agreed to Wed 8/27 at 1pm (8/20 email); TMS shows 12:30.” That’s the latest confirmation, with its timestamp, so a reader can see the stale 8/26 subject line was ignored on purpose.
+    What was searched, for any “no” or “not on record.” q04 and q10 can’t cite their way to an answer, because the evidence is an absence. The reader needs “searched shipments for Bayview: 0 bookings; found 219 emails, all quote requests.” Without the search terms, a “no” is just a claim.
+    The as_of date or window behind “last week” or “usually.” q03’s four loads are only right for the week of 3/16.
+    A flag when the loop ran out of budget instead of finishing. A partial answer has to say it’s partial.
+
+    Leave in the logs, not the response: latency, character counts, the full text of every chunk or page read, and calls that went nowhere. Those are for me to debug cost and failures (and they’re the Week 4 trace). A user doesn’t need them to trust the answer.
+
+    Which approach makes it easier: it splits.
+
+    DCI is easier to explain. grep returns a page name and line number, and read returns a named page, so the trace already reads like a person’s research: “checked the Harbor Lane page, Pickup locations section, line 12.” It’s also the only one that can show an absence: a grep that returns nothing is evidence, while top-k always returns something, so RAG can never cite “nothing matched.”
+    Agentic RAG is easier to source. If each chunk is one shipment or one email, every hit already is a record the user can look up. DCI’s pages are generated summaries (“74% at 1800 Alameda Way”), so a page citation isn’t something someone at the Order Desk can check in the TMS. That only works if each wiki page carries the underlying shipment IDs, so citations resolve back to real records.
+
+    So for my corpus: DCI gives the better reasoning trail, RAG gives the better citations, and the wiki has to embed record IDs on every line for DCI to match RAG on citations.
 
     ---
     ## Task 3 — Evaluate outcomes and behaviour
@@ -519,6 +559,20 @@ def _(mo):
     tools — not the model — that would bring it back?
 
     **Answer:**
+    Which column pushes me over first: evidence_chars.
+
+    My corpus is mostly email threads, and every reply quotes the whole thread below it, plus signatures, confidentiality notices, and the same ~800-character freight-terms block on every message from our side. Some messages are stored twice. When I measured two of my labelled threads, the new text was a tiny fraction of what a tool would return:
+
+    q07 thread: 56,886 characters raw, 1,867 new (3%)
+    q08 thread: 251,674 characters raw, 4,634 new (under 2%)
+
+    One raw read of the q08 thread is about 20× Session 5’s largest evidence total, enough to use up a question’s token budget on its own. DCI hits this first because it reads whole threads and pages. Agentic RAG hits it more slowly, but each email chunk is still mostly quoted history, so it searches more times to find the one new sentence. That’s why calls and latency_s climb as a side effect, not as the cause.
+
+    The one tool change: return only each message’s new text.
+
+    At index time: cut each email at its first quoted reply, strip signatures, legal notices and the repeated terms block, and drop duplicate copies. Then search and read return the ~2–5K characters that matter instead of 57–252K, a 30–50× cut with no change to the model. Every fact my questions depend on (q07’s reschedule, q08’s dock hours) is in the new text of a single message. The full thread stays available through an explicit “read whole thread” call for the rare case that needs it.
+
+    What this leaves: the pattern questions (q05, q06, q09) still cost a lot, because “usually” means reading a customer’s whole history (452 shipments for the biggest). The next fix would be wiki pages that carry their own counts and shares at the top, but that’s a second change.
 
     ---
     ## Task 4 — Inspect the difference
@@ -647,6 +701,21 @@ def _(mo):
     get approved, and what would change your mind?
 
     **Answer:**
+    What per-user authorisation looks like. My corpus is a static export of one co-owner’s mailbox, which also receives copies of accounting@, the other co-owner’s entire inbox, and the order-desk aliases, plus 2,636 rate confirmations showing what we pay carriers. Because it’s an export, nothing from the source system’s permissions comes with it: anyone who can query the database can read all of it. So authorisation has to be rebuilt as tags on each record, and enforced by the tools:
+
+    Tag at index time: which mailbox or alias each email came through (orders@, dispatch@, accounting@, a personal inbox), plus a record type (shipment, order email, quote, accounting).
+    Roles: owners see everything. The order desk sees shipments and order/dispatch mail, but not accounting@ or anyone’s personal inbox. The part-time and offshore help we’re planning to add sees the same, minus carrier_total, because carrier cost reveals our margin.
+    search: filter before ranking, never after. Filtering after a top-k search returns fewer results than asked for, and how many went missing tells a user that restricted records matched.
+    read: check permission on every call, by record ID, and refuse rather than truncate.
+    list: show only the pages the user may see. Page names leak on their own: a page called “Co-Owner – personal” or a customer that only appears in accounting mail tells you something before anything is read.
+
+    Which I can get approved: Agentic RAG over an index built from the permitted slice only. The approval conversation with the owners is simple: “the model can only ever see what’s in this index, and this is what’s in it.” Excluding accounting@, personal mail and carrier cost at build time means a missed check can’t leak them. DCI is harder to approve. list_pages shows the whole catalogue, read_page reads whatever the model names, and my wiki’s summary pages combine records, so a customer page that mixes in carrier cost leaks it to every role that can read that page. DCI is approvable only if the wiki is generated per role from that same permitted slice.
+
+    What would change my mind.
+
+    If the owners decide everyone on a four-person desk sees everything (which may be true today), DCI’s extra exposure stops mattering, and it wins on the questions it answers better.
+    If we index from Microsoft 365 directly instead of an export, each user’s own mailbox permissions would apply at the source, and both approaches become approvable. That requires recovering the M365 admin access nobody currently knows how to reach.
+    When the offshore help actually starts, the rules get stricter, not looser.
 
     ---
     # Conclusion

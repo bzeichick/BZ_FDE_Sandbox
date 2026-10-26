@@ -64,6 +64,42 @@ gap is worth chasing — it usually means a proxy nobody documented.
 
 ---
 
+## Week 3 — retrieval dependencies
+
+**Was the CLIP download blocked?** No. The network is open (see Week 1), and the
+CLIP and local text-embedding models downloaded from Hugging Face on the first
+run, without a token (unauthenticated, so rate-limited, but it completed).
+
+**What I'd do in production anyway:** bake the model files into the Docker image
+at build time and pin the version, rather than downloading on first use. There is
+no internal artifact store, so the image (pushed to a private registry) is the
+artifact store; the model becomes a versioned dependency like any other, and a
+Hugging Face outage or rate limit can't break a restart.
+
+**Probably not needed at all:** my non-text content is scanned documents (bills of
+lading, POs, appointment confirmations), and the plan is to parse them to text
+(Strategy A), not search them by pixels. If that holds after measuring, CLIP never
+ships.
+
+**Which vendors would see customer data:**
+- Vision parsing of scans: the same LLM provider already used for chat, under
+  the same key and the owners' existing OK. No new vendor.
+- Hosted text embeddings: a second provider would receive the text of customer
+  orders and emails. The owners are fine with an additional AI vendor (confirmed
+  10/23/2026), so this is approved. Fallback if that ever changes: a local
+  embedding model in the image (no data leaves the server), or BM25 alone,
+  which needs no model.
+- A hosted multimodal embedding endpoint: not considered. It would add a third
+  vendor for content that isn't actually visual.
+
+**Access control depends on email admin access.** Per-user permissions on the
+retrieval tools (see the Week 3 decision) can only come from the source if we
+index each person's mailbox through Microsoft 365 directly. Until the admin
+account is recovered, the corpus is a static export, and permissions have to be
+rebuilt as tags at index time.
+
+---
+
 ## Week 9 — the full checklist
 
 <!--

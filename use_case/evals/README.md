@@ -40,6 +40,16 @@ wrong thing.
 
 ## `retrieval.jsonl`
 
+**My labels (TC3).** 7 of 10 questions need more than one record, and q09 needs 8 —
+so top-5 cannot pass it; that is the top-k floor. Labels are against the real
+shipment history (2,636 TMS shipments + linked order emails), not `synthetic_v1.jsonl`:
+the desk's questions are about history, and the synthetic set is extraction inputs.
+This file is the redacted copy; the real one stays in `use_case/data/` (gitignored).
+Fields beyond the template: `must_contain` (inner lists = any one spelling counts),
+`must_not_cite` (checked against the answer's sources), `must_not_contain` (phrases
+that fail an answer even when the keywords match), `gold_rule` (pattern
+questions: min citations from the right customer), `as_of` (fixes "last week").
+
 Ten real questions from your use case, written in TC3, each labelled with the
 record(s) in `use_case/data/synthetic_v1.jsonl` that should answer it — plus
 the five your first real user typed. One object per line:

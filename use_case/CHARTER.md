@@ -83,6 +83,7 @@ would notice.
 
 | Week | Decision | Why, and what you rejected |
 | --- | --- | --- |
-| 3 | Retrieval approach | <!-- TC3 --> |
+| 3 | Second contract: `HistoryQuestion` → `HistoryAnswer` (question, as_of → answer, sources, declined, searched, as_of, partial), next to the unchanged order contract | Reshaping `Request`/`Response` to carry questions; answering history questions through `solve()` | The order desk's real questions (TC3 labels) are lookups into its own history (did we book this PO, where does this customer usually pick up), not order reading. In ColdLade these are the Link and Enrich steps, which the order pipeline will call as a tool in Week 5 |
+| 3 | Retrieval approach: direct corpus interaction over wiki pages generated from TMS shipments (customer and pickup-facility pages with counts, shares and shipment IDs), plus list / grep / read / read_thread over shipments, emails and attachments; every answer cites TMS shipment IDs or emails | Rejected BM25 search alone, hybrid (BM25 + embeddings), and the wiki plus hybrid search: all measured on 10 labelled questions, and only the wiki answered pattern, set and thread questions correctly (10/10 in the final run), at ~2.4× hybrid's tokens. Full row in decisions.md |
 | 5 | Agent architecture | <!-- TC5 --> |
 | 8 | Model | <!-- TC8 --> |
