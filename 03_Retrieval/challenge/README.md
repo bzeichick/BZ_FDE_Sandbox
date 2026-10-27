@@ -611,7 +611,7 @@ every final run it declined without stating a rate. Bad input (an empty question
 date) comes back the same way, as a decline in the same shape, never an error.
 
 
-- **Loom (≤5 min):** _to add_
+- **Loom (≤5 min):** [TC3 Walkthrough](https://www.loom.com/share/8dd34bdaae6d449fad07e41032e20e20)
 - **Branch:** `tc3`. Everything below is committed there. Production data stays local (gitignored);
   the repo ships the synthetic orders, so the endpoint runs for anyone, but **the scores were
   measured on production records and only reproduce there.**
