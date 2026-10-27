@@ -609,3 +609,53 @@ where the answer came from.
 shipments it checked only as what the broker pays the carrier, and lists what it searched; in
 every final run it declined without stating a rate. Bad input (an empty question or an invalid
 date) comes back the same way, as a decline in the same shape, never an error.
+
+
+- **Loom (≤5 min):** _to add_
+- **Branch:** `tc3`. Everything below is committed there. Production data stays local (gitignored);
+  the repo ships the synthetic orders, so the endpoint runs for anyone, but **the scores were
+  measured on production records and only reproduce there.**
+
+**Use case:** a history lookup for a cold-chain freight broker's order desk. Ask a question in plain
+words, get an answer from the broker's TMS shipments and order emails, with every record it came from.
+
+| Deliverable | Where | In one line |
+| --- | --- | --- |
+| Ten labelled questions (Step 1) | [retrieval.jsonl](../../use_case/evals/retrieval.jsonl) · [evals README](../../use_case/evals/README.md) | Real desk questions on production history (redacted copy). 7 of 10 need more than one record (q09 needs 8): the top-k floor. Three labels corrected after reading traces, each with the reason in its note |
+| Schema implemented (Step 2) | [schema.py](../../01_Product_Engineering/challenge/schema.py) · [CHARTER.md](../../use_case/CHARTER.md) · [decisions.md](../../use_case/decisions.md) | A second contract, `HistoryQuestion` → `HistoryAnswer` (with `sources` on every answer); the Week 1 order contract unchanged |
+| Results table, settings, embedding tokens (Step 3) | [results.md](results.md) · [findings.md](findings.md) | Four techniques on the same loop and labels: wiki 10/10 pass and cited; hybrid 8/10; BM25 5/10; wiki + search 9/10. Embeddings: 9,526,378 tokens (measured) |
+| Endpoint with sources (Step 4) | [app.py](../../01_Product_Engineering/challenge/app.py) (`answer_from_history`) · [retrieval.py](../../01_Product_Engineering/challenge/retrieval.py) · [page](../../01_Product_Engineering/challenge/frontend/history.html) | Docstring written for an agent; every answer cites shipment IDs or emails; decline behavior above |
+| Still runs in Docker | [Dockerfile](../../01_Product_Engineering/challenge/Dockerfile) | Builds and answers on the synthetic orders; the image contains no production data |
+| Retrieval decision (Step 5) | [decisions.md](../../use_case/decisions.md), Week 3 | Shipped the wiki; rejected the other three with measured reasons; would switch if most real questions are exact-reference lookups, or move TMS-first if the TMS can export the history |
+| Four non-text answers (Step 5) | [decisions.md](../../use_case/decisions.md), "Week 3: non-text content" | Text as pixels: 375 scanned PDFs, to be parsed once to text (Strategy A) and checked against each shipment's TMS record; handwritten changes go to a person; no audio or video |
+| Step 6: demo to a real user | [below](#step-6) · [stakeholders.md](../../use_case/stakeholders.md) · [results_users.md](results_users.md) | Sales Director and Operations asked 5 questions each; 8 of 10 judged correct in the session. Their 10 are labelled (u01-u10) and score 8/10 on a frozen snapshot of live mail |
+| Step 7: bring it to work | [below](#bring-it-to-work) | Today: hand searches of one co-founder's mailbox and the TMS screens. Swap: TMS first (the system of record, including web-form orders), email for what it doesn't hold; needs the vendor to enable the TMS export |
+
+**What I'd want a reviewer to push on:** whether 10 labels (plus the user's 5) are enough to call the
+wiki's margin real, given runs varied by one or two questions; and whether "TMS first" makes the
+email retrieval a sideshow.
+
+## Step 6
+
+A screen-share with two people on the order desk. Each typed five questions of their own; after
+each one I asked whether they'd act on it, whether the source convinced them, and what they wanted
+to ask that they didn't. Full notes in [stakeholders.md](../../use_case/stakeholders.md).
+
+| | Sales Director | Operations |
+| --- | --- | --- |
+| Their questions | a customer's week, a claim, a rejected pallet's return (twice), two appointments | an order by PO, two rates, pickup and delivery confirmed, frozen or chilled |
+| Correct, in their judgment | 5/5 | 3/5 |
+| Would act on it | all 5 | not on the 2 wrong ones |
+| Wanted to ask | nothing else | "double POs that confuse" |
+
+**What it changed:** their 10 questions are now labelled (u01-u10) and scored on live mail frozen
+at the session date: 8/10 pass ([results_users.md](results_users.md), [findings](findings.md#user-session-questions-scored-step-6)).
+The double-PO case was already in operations' own questions and is now a test (u08). Queued for
+Week 4: every dollar figure says whose rate it is, a retry on other details before declining, and
+the incomplete banner showing on correct answers.
+
+## Bring it to work
+- **Where this applies at work:** four people answer order questions by searching a co-founder’s mailbox (the only place every emailed order lands, and not everyone can see it) and the TMS screens, by hand. Part-time and offshore help is planned and won’t know where to look.
+- **Data:** The TMS records are the system of record for active and fulfilled orders and cover the past 3 years. The co-owner's mailbox including text, plus 375 scanned PDFs with no text layer. There are also some web form submissions that don't get copied to the email but exist in the TMS (strong indication to go to TMS first for answers). The open question: how much of the TMS order data is exportable.
+- **Model / endpoint:** answers come from the hosted Anthropic API; the owners OK’d customer order text leaving the network for it. Embeddings went to OpenAI (also OK’d), but the shipped technique doesn’t need them. For re-indexing at work: 9,526,378 tokens (measured), about $0.19 at $0.02 per 1M (looked up, OpenAI pricing, Oct 2026).
+- **Access / approval:** TMS read access through a web-services user needs the vendor’s approval. The read-only user exists, but enabling the export or extract calls is the vendor’s decision. Adding more mailboxes to the Graph app’s scope needs Microsoft 365 admin approval. The owners’ sign-off covers using customer email for this, where it’s stored, and who can see it.

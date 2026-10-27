@@ -23,11 +23,12 @@ from pathlib import Path
 import retrieval
 from llm import MODEL
 # The measured corpus is the frozen snapshot: never the live mail, even if the shell has it set.
-os.environ.pop("COLDLADE_LIVE_MAIL", None)
+LIVE_MAIL = os.environ.pop("COLDLADE_LIVE_MAIL", None)
 
 REPO = Path(__file__).resolve().parents[2]
 LABELS = REPO / "use_case" / "data" / "retrieval.real.jsonl"
 RESULTS = REPO / "03_Retrieval" / "challenge" / "results.md"
+USER_RESULTS = REPO / "03_Retrieval" / "challenge" / "results_users.md"
 RUNS = REPO / "use_case" / "data" / "runs"
 
 MAX_TURNS = 8
@@ -81,7 +82,7 @@ def score(label: dict, run: dict) -> dict:
             "stopped": run["stopped"]}
 
 
-def write_results(rows: list[dict]) -> None:
+def write_results(rows: list[dict], path: Path = RESULTS) -> None:
     """The results table: one summary row per technique, then every question. No question text."""
     records, _ = retrieval.corpus()
     kinds = {k: sum(1 for r in records if r.kind == k) for k in ("shipment", "email", "attachment")}
@@ -136,7 +137,7 @@ def write_results(rows: list[dict]) -> None:
         lines.append(f"| {r['id']} | {TECHNIQUES[r['technique']][0]} | {'yes' if r['pass'] else 'no'} | "
                      f"{'yes' if r['cited'] else 'no'} | {r['calls']} | {r['evidence_chars']:,} | "
                      f"{r['tokens']:,} | {r['latency_s']} | {r['stopped']} |")
-    RESULTS.write_text("\n".join(lines) + "\n")
+    path.write_text("\n".join(lines) + "\n")
 
 
 def main() -> None:
@@ -144,13 +145,25 @@ def main() -> None:
     parser.add_argument("--only", choices=sorted(TECHNIQUES), help="run one technique")
     parser.add_argument("--q", help="run one question id, e.g. q07")
     parser.add_argument("--resume", help="an interrupted run's use_case/data/runs/<time>.jsonl: keep its results, run the rest")
+    parser.add_argument("--live", action="store_true",
+                        help="the user-session questions (labels with live_until), on live mail up to that time; wiki only")
     args = parser.parse_args()
     if not os.environ.get("COLDLADE_DB"):
         raise SystemExit("Set COLDLADE_DB to orders.db first: the labels point at production records.")
 
     labels = [json.loads(line) for line in LABELS.read_text().splitlines() if line.strip()]
     labels = [l for l in labels if not args.q or l["id"] == args.q]
-    techniques = [args.only] if args.only else list(TECHNIQUES)
+    # User-session labels need mail received after the export, so they run on their own (--live).
+    labels = [l for l in labels if bool(l.get("live_until")) == args.live]
+    if args.live:
+        if not LIVE_MAIL:
+            raise SystemExit("--live needs COLDLADE_LIVE_MAIL set to ColdLade's coldlade-eval/data folder.")
+        cutoffs = {l["live_until"] for l in labels}
+        if len(cutoffs) != 1:
+            raise SystemExit(f"--live runs one snapshot at a time; these labels have {sorted(cutoffs)}")
+        os.environ["COLDLADE_LIVE_MAIL"] = LIVE_MAIL
+        os.environ["COLDLADE_LIVE_UNTIL"] = cutoffs.pop()
+    techniques = [args.only] if args.only else (["dci"] if args.live else list(TECHNIQUES))
 
     RUNS.mkdir(exist_ok=True)
     if args.resume:   # keep what an interrupted run already saved; only run the missing (question, technique) pairs
@@ -178,8 +191,9 @@ def main() -> None:
                 answer = run["answer"].model_dump(mode="json") if run["answer"] else None
                 log.write(json.dumps({**row, "question": label["question"], "answer": answer,
                                       "trace": run["trace"]}) + "\n")
-    write_results(rows)
-    print(f"\nwrote {RESULTS.relative_to(REPO)}  and every trace to {run_log.relative_to(REPO)}")
+    out = USER_RESULTS if args.live else RESULTS
+    write_results(rows, out)
+    print(f"\nwrote {out.relative_to(REPO)}  and every trace to {run_log.relative_to(REPO)}")
 
 
 if __name__ == "__main__":

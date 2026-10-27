@@ -168,3 +168,41 @@ Corpus and labels: production (not committed); names below are the redacted ones
   different reference number than the question. A Week 4 debugging case.
 - Maintenance: the endpoint docstring's coverage dates are fixed text; when the TMS feed is live,
   update them or let /coverage be the source.
+
+## Is email the right source? (after the endpoint)
+- Of the 10 labelled questions, 6-7 are better answered from the TMS than from email: q01/q02
+  (booked? status), q03/q05/q06/q09 (counts over structured fields), q04 (the TMS holds the
+  customer charge; email-only can just decline). q07 needs both (booking + receiver confirmation).
+  q08 (dock hours) and q10 (loads under other customers' names) need email.
+- Email covers what the TMS can't: anything before or outside a booking (quotes, tenders, orders
+  not yet entered, cancellations), who agreed to what, and checking the TMS against what was
+  agreed. This week alone found three loads under the wrong customer, 303 shipments with a missed
+  temperature, and appointment times that differ between the TMS and the confirmation emails.
+- So the app should be "TMS first, email for what the TMS doesn't know". The endpoint, contract,
+  wiki pages and loop stay; the TMS export becomes the main source (the Week 5 exact-reference tool,
+  and profile pages built from TMS records instead of parsed rate confirmations).
+- Open question before Week 5: how much history the TMS can export (the current lookup export is
+  ~138 recent rows).
+
+  ## User-session questions, scored (Step 6)
+- The 10 questions from the two sessions (u01-u05 sales, u06-u10 operations) are labelled against
+  the production corpus plus live mail frozen at 10/27 15:30 UTC (`measure.py --live`, wiki only,
+  [results_users.md](results_users.md)). Kept apart from the main 10: 7 of them need mail received
+  after the TMS shipment records stop (10/16), and the main run must not change as mail arrives.
+- 8/10 pass, 9/10 cited. u03: the question names the wrong state for the returned pallet; the agent
+  took it literally, found no delivery there among that customer's 10/9 shipments, and declined
+  without searching the PO's "pallet discrepancy" emails (it answered correctly in the live session,
+  so this varies run to run). u06: the order details were right, but it read the 10/27 "ready 11/2?"
+  email as a re-confirmation and kept the 10/26 pickup. The reviewer's "wrong" holds, but because
+  the pickup moved, not because the TMS records stop.
+- Two of my first labels were wrong and the app was right. u09: the customer quote sits in an email
+  that names only the quote number, not the order number I searched for. u02: the claim was on the
+  original load, not the return-trip tender I labelled. Lesson: label by reading the thread, not by
+  searching for the reference the user typed.
+- Operations' "what did you want to ask" (double POs) was already in her questions: one PO is on a
+  9/1 shipment and on the new 10/27 order. u08 fails if it cites the 9/1 shipment; it passed.
+- Another TMS-vs-email mismatch: one of u05's loads is entered in the TMS as refrigerated 30-34 F,
+  but the freight and the email thread say frozen.
+- For Week 4: when one detail of a question matches nothing, search on the others before declining
+  (u03); every dollar figure says whose rate it is; tell "ran out of turns" apart from "may be
+  incomplete", since 5 of the 7 turn-limit answers were correct.

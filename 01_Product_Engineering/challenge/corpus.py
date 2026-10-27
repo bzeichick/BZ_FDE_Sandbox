@@ -21,7 +21,7 @@ import os
 import re
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import date, timezone
+from datetime import date, datetime, timezone
 from email import policy
 from email.utils import parsedate_to_datetime
 from pathlib import Path
@@ -275,6 +275,8 @@ def _live_index(root: Path) -> dict[str, dict]:
 def _live_emails(root: Path, seen: set[str]) -> list[Record]:
     """Business emails saved by the server's pull (.eml), one per Message-ID, skipping any already
     in orders.db. Body text only for now: attachments in these emails are not read yet."""
+    until = os.environ.get("COLDLADE_LIVE_UNTIL")          # snapshot cutoff (measure.py --live); unset in the app
+    until = datetime.fromisoformat(until) if until else None
     index, out = _live_index(root), []
     for path in sorted(root.rglob("*.eml")):
         with open(path, "rb") as f:
@@ -295,6 +297,8 @@ def _live_emails(root: Path, seen: set[str]) -> list[Record]:
             sent = parsedate_to_datetime(msg["Date"]).astimezone(timezone.utc)   # UTC, like orders.db's dates
         except (TypeError, ValueError):
             continue
+        if until and sent > until:
+            continue                      # arrived after the snapshot cutoff
         out.append(Record(
             id=f"eml:{path.parent.name}/{path.stem}",
             kind="email",
