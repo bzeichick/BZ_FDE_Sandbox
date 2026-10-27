@@ -982,11 +982,11 @@ def _(mo):
 
 
 @app.cell
-def _():
+def _(mo):
     from pathlib import Path as _P
     from helpers.sizing import from_config, estimate
-
-    _cfg = next((_P.home() / ".cache/huggingface/hub/models--LiquidAI--LFM2.5-350M/snapshots").glob("*/config.json"))
+    _cfg = next((_P.home() / ".cache/huggingface/hub/models--LiquidAI--LFM2.5-350M/snapshots").glob("*/config.json"), None)
+    mo.stop(_cfg is None, mo.md("*Load the model above first: its config.json isn't in the Hugging Face cache yet.*"))
     _geo = from_config(str(_cfg), params=350e6)
 
     print(estimate(_geo, context=4096,   batch=1))
