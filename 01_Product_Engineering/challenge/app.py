@@ -12,12 +12,16 @@ from fastapi.responses import HTMLResponse
 from gradio import Server
 from pydantic import ValidationError
 
+from datetime import date
+
 from llm import stream_reply
-from schema import Request, Response, solve
+from retrieval import answer_history, coverage
+from schema import HistoryAnswer, HistoryQuestion, Request, Response, solve
 
 app = Server()
 
 FRONTEND = Path(__file__).parent / "frontend" / "index.html"
+HISTORY_PAGE = Path(__file__).parent / "frontend" / "history.html"
 
 
 # --- The API -----------------------------------------------------------------
@@ -66,6 +70,49 @@ def draft_shipment_from_order(order_text: str, received_date: str) -> str:
     return solve(request).model_dump_json()
 
 
+@app.api(name="answer_from_history")
+def answer_from_history(question: str, as_of: str = "") -> str:
+    """Answer a question about the freight broker's own shipping history, citing the records used.
+
+    Use it for what already happened: whether a PO or SO was booked and its status, where a customer
+    usually picks up, what temperature they usually ship at, which customers used a facility, what an
+    email thread agreed to, or whether the broker ever worked with a company. It reads TMS shipment
+    records, order emails and their attachments. It does not enter or change orders (use
+    draft_shipment_from_order for a new order) and it does not know customer rates, only what the
+    broker pays carriers.
+
+    What it covers: order emails and attachments from mid-October 2024, plus the business email the
+    server saves every weekday (new mail appears after the next pull and app restart); TMS shipments
+    only through the export (mid-October 2026), because they come from carrier rate confirmations. A
+    load booked after that appears only in emails, and a shipment exists only once a carrier was
+    booked. For anything after the records stop it should say so rather than guess.
+    GET /coverage returns the current counts and the dates each kind of record runs through.
+
+    question: the question in plain words, e.g. "Did we book PO 6152?".
+    as_of: optional date, YYYY-MM-DD. Answer as if today were this date ("last week" is relative to
+      it); records dated after it are ignored. Empty means today.
+
+    Returns a JSON object (HistoryAnswer in schema.py):
+      answer   -- one to three sentences.
+      sources  -- every record relied on: record_id (a TMS shipment ID like "84477", an email
+                  "msg:16250", an attachment "msg:16250#att1", or a customer/facility page, which is
+                  always accompanied by the shipment IDs behind it), kind, and a quote copied from it.
+      declined -- true when the records don't answer the question; the answer says so and `searched`
+                  lists what was checked. A decline is a valid answer, not an error.
+      searched -- what was searched and what it found.
+      as_of    -- the date the answer is true for.
+      partial  -- true if the search stopped before finishing: treat the answer as incomplete.
+    Takes about 10-60 seconds: it reads several records before answering.
+    """
+    try:
+        request = HistoryQuestion.model_validate({"question": question, "as_of": as_of or None})
+    except ValidationError:
+        # Bad input is answered in the same shape, not with a crash (same rule as draft_shipment_from_order).
+        return HistoryAnswer(answer="The question was empty or the as_of date wasn't valid (use YYYY-MM-DD).",
+                             declined=True, as_of=date.today()).model_dump_json()
+    return answer_history(request).model_dump_json()
+
+
 # --- The frontend ------------------------------------------------------------
 # Defining a route at "/" replaces Gradio's default UI with ours.
 
@@ -73,6 +120,17 @@ def draft_shipment_from_order(order_text: str, received_date: str) -> str:
 @app.get("/", response_class=HTMLResponse)
 def homepage() -> str:
     return FRONTEND.read_text(encoding="utf-8")
+
+
+@app.get("/history", response_class=HTMLResponse)
+def history_page() -> str:
+    return HISTORY_PAGE.read_text(encoding="utf-8")
+
+
+@app.get("/coverage")
+def coverage_info() -> dict:
+    """What the history lookup answers from: record counts and the dates most records fall between."""
+    return coverage()
 
 
 @app.get("/health")

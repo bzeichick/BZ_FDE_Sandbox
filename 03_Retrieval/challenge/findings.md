@@ -128,3 +128,43 @@ Corpus and labels: production (not committed); names below are the redacted ones
   starts 2026-04-19" -- a date-arithmetic error that the keyword score passes. Reasoning, not retrieval.
 - q09 still cost 230K tokens (18 page reads).
 - Conclusion: adding search makes the wiki ~18% cheaper and less accurate. Not shipped.
+
+## The endpoint (Step 4): trying it, after measurement
+- Shipped technique: the wiki (direct corpus interaction), behind `answer_from_history` and a
+  question page at /history. The page shows what the records cover, worked out from the data.
+- First try, status of SO-073902 (q02) "as of today": right facts, but it read the missing POD as
+  "not delivered", because the model didn't know where the records end. Fix: when the as-of date is
+  past where records stop, the prompt says where each kind stops (never applies to the labelled
+  questions, so the measured prompt is unchanged).
+- Docker check (synthetic data, no production files in the image): runs, answers cite syn: records,
+  the page labels it demo data. It exposed a read_thread bug: emails with no thread ID (all synthetic
+  ones) were grouped into one "thread" of 531 orders. Fixed: an unthreaded email is its own thread.
+  Production unaffected (every production email has a thread ID), so no re-measure.
+- On demo data some answers still hit the turn limit: with no shipments there are no customer or
+  facility pages, so the model spends turns confirming nothing else exists.
+
+## Live mail (the server's weekday pull)
+- The endpoint now also reads the business email the server saves every weekday (backfill +
+  intake .eml files): +1,232 emails after de-duplicating against the export (569 after 10/19),
+  linked into existing threads by conversation ID. measure.py strips it, so the measured corpus
+  stays the frozen snapshot.
+- Emails now run to the latest pull; TMS shipments still stop at 10/16, because they come from
+  carrier rate confirmations and the pull skips the broker's own carrier tenders. The TMS export
+  (Week 5) is what closes that gap. Attachments in live mail aren't read yet.
+- 9 of 11 test questions right, including several only live mail can answer (a cancelled tender,
+  a postponed quote, POs scheduled for November).
+- Two misses, one cause: grep returned the first 40 matches in corpus order (old export first, live
+  mail last), so broad patterns (a customer name, "2026-10-21") never reached recent mail. "Newest" was
+  always last; live mail exposed it.
+- Fixes: grep searches newest first; prompt rule "when records disagree, the most recent wins, and
+  say what it replaced". Both change the measured technique, so the wiki was re-measured: 9/10 pass,
+  8/10 cited (run 3: 10/10, 10/10), within the run-to-run spread (9, 9, 10, 9). q10 took the
+  Richmond cold-storage trap again (2 of 4 runs: a wiki-specific weak spot, unrelated to the
+  fixes); q09 named all 8 but said "six"; q07 opened "No" over the 30-minute difference. Kept both.
+- Re-asked: the Brightloaf 10/21 order is now found (a frozen PO, confirmed the same day). Fix worked.
+- Still wrong: SO-073902 gives 10/22 06:00 (cooler dock). The final change, to 10/21 08:00 at the
+  frozen dock, is in a 10/16 email that cites only the customer PO, not the SO the question used,
+  and the TMS record (10/21 07:30) was set aside. Multi-reference hop: the later update uses a
+  different reference number than the question. A Week 4 debugging case.
+- Maintenance: the endpoint docstring's coverage dates are fixed text; when the TMS feed is live,
+  update them or let /coverage be the source.

@@ -14,12 +14,16 @@ one attachment). Nothing is cut inside a record here: README Step 3 says to
 start with the record boundary and only chunk further if measured.
 """
 
+import email
+import html
 import json
 import os
 import re
 import sqlite3
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, timezone
+from email import policy
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 SYNTHETIC = Path(__file__).parent / "corpus" / "synthetic_v1.jsonl"
@@ -36,9 +40,20 @@ class Record:
 
 
 def load_corpus() -> list[Record]:
-    """All records, from production if COLDLADE_DB points at orders.db, else synthetic."""
+    """All records, from production if COLDLADE_DB points at orders.db, else synthetic.
+
+    COLDLADE_LIVE_MAIL (optional, production only): ColdLade's coldlade-eval/data folder, where the
+    server's weekday mail pull is copied (backfill/ and intake/ .eml files). Adds the business email
+    received since the export. Left unset for measure.py, so the measured corpus stays the frozen snapshot."""
     db = os.environ.get("COLDLADE_DB")
-    return _load_production(db) if db else _load_synthetic(SYNTHETIC)
+    if not db:
+        return _load_synthetic(SYNTHETIC)
+    records = _load_production(db)
+    live = os.environ.get("COLDLADE_LIVE_MAIL")
+    if live:
+        seen = {r.meta["msgid"] for r in records if r.meta.get("msgid")}
+        records += _live_emails(Path(live).expanduser(), seen)
+    return records
 
 
 def as_of(records: list[Record], day: date | None) -> list[Record]:
@@ -203,7 +218,7 @@ def _emails(con) -> list[Record]:
             date=(sent or "")[:10],
             title=subject or "(no subject)",
             text=f"Subject: {subject}\nFrom: {frm_name} <{frm}>\nTo: {to}\nSent: {sent}\n\n{text}",
-            meta={"thread": conv, "from": frm, "sent": sent},
+            meta={"thread": conv, "from": frm, "sent": sent, "msgid": (msgid or "").strip("<> ")},
         ))
     return out
 
@@ -232,6 +247,63 @@ def _attachments(con) -> list[Record]:
             title=f"{name} (attached to: {subject})",
             text=f"Attachment: {name}\nAttached to email: {subject} ({sent})\n\n{text.strip()}",
             meta={"email": f"msg:{mid}", "file": name, "sha": sha},   # same sha = same file
+        ))
+    return out
+
+# ---------------------------------------------------------------------------
+# Live mail: what the server's weekday pull has saved since the export
+# ---------------------------------------------------------------------------
+
+def _html_text(s: str) -> str:
+    s = re.sub(r"(?is)<(style|script).*?</\1>", "", s)
+    s = re.sub(r"(?i)<br\s*/?>|</p>|</div>|</tr>|</li>", "\n", s)
+    return html.unescape(re.sub(r"<[^>]+>", " ", s))
+
+
+def _live_index(root: Path) -> dict[str, dict]:
+    """eml file name -> its index entry (received time, conversation id) from the pull's own logs."""
+    index = {}
+    for log in [root / "backfill" / "index.jsonl", *sorted(root.glob("intake/*/messages.jsonl"))]:
+        if log.exists():
+            for line in log.read_text().splitlines():
+                entry = json.loads(line)
+                if entry.get("eml"):
+                    index[Path(entry["eml"]).name] = entry
+    return index
+
+
+def _live_emails(root: Path, seen: set[str]) -> list[Record]:
+    """Business emails saved by the server's pull (.eml), one per Message-ID, skipping any already
+    in orders.db. Body text only for now: attachments in these emails are not read yet."""
+    index, out = _live_index(root), []
+    for path in sorted(root.rglob("*.eml")):
+        with open(path, "rb") as f:
+            msg = email.message_from_binary_file(f, policy=policy.default)
+        msgid = (msg.get("Message-ID") or "").strip().strip("<>")
+        if msgid in seen:
+            continue                      # already in orders.db, or a second copy of the same message
+        seen.add(msgid or str(path))
+        part = msg.get_body(preferencelist=("plain", "html"))
+        body = part.get_content() if part is not None else ""
+        if part is not None and part.get_content_type() == "text/html":
+            body = _html_text(body)
+        text = new_text(body)
+        if not text:
+            continue
+        entry = index.get(path.name, {})
+        try:
+            sent = parsedate_to_datetime(msg["Date"]).astimezone(timezone.utc)   # UTC, like orders.db's dates
+        except (TypeError, ValueError):
+            continue
+        out.append(Record(
+            id=f"eml:{path.parent.name}/{path.stem}",
+            kind="email",
+            date=sent.date().isoformat(),
+            title=str(msg.get("Subject") or "(no subject)"),
+            text=f"Subject: {msg.get('Subject') or ''}\nFrom: {msg.get('From') or ''}\nTo: {msg.get('To') or ''}\n"
+                 f"Sent: {sent.isoformat(timespec='seconds')}\n\n{text}",
+            meta={"thread": entry.get("conversation"), "from": str(msg.get("From") or ""),
+                  "sent": sent.isoformat(timespec="seconds"), "msgid": msgid, "live": True},
         ))
     return out
 

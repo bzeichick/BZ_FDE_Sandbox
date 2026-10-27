@@ -1,6 +1,6 @@
 # TC3 retrieval results
 
-Measured 2026-10-26 11:30 on the production corpus (not committed): 2,636 TMS shipments, 29,418 emails (new text only, deduplicated), 4,919 attachments (rate confirmations excluded). Labels: `use_case/evals/retrieval.jsonl` (redacted copy).
+Measured 2026-10-26 18:27 on the production corpus (not committed): 2,636 TMS shipments, 29,418 emails (new text only, deduplicated), 4,919 attachments (rate confirmations excluded). Labels: `use_case/evals/retrieval.jsonl` (redacted copy).
 
 | Technique | Pass | Cited | Calls (avg) | Evidence chars (avg) | Tokens (avg) | Latency s (avg) | Stopped on answer |
 | --- | --- | --- | --- | --- | --- | --- | --- |

@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ColdLade History Lookup</title>
+    <style>
+      :root {
+        --ink: #1d2733; --muted: #5d6b7a; --line: #d8dee5; --bg: #f6f8fa; --card: #fff;
+        --accent: #0f6c8a; --warn-bg: #fff4e5; --warn-line: #f0a33a;
+        --stop-bg: #fdecec; --stop-line: #d64545;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; font-family: system-ui, sans-serif; color: var(--ink); background: var(--bg); line-height: 1.45; }
+      header { background: var(--ink); color: #fff; padding: 0.9rem 1rem; display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 0.5rem; }
+      header h1 { margin: 0; font-size: 1.15rem; }
+      header a, header small { color: #b9c4cf; font-size: 0.85rem; }
+      main { max-width: 56rem; margin: 1.25rem auto; padding: 0 1rem; display: grid; gap: 1.25rem; }
+      section { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 1rem; }
+      h2 { font-size: 1rem; margin: 0 0 0.75rem; }
+      label { display: block; font-size: 0.85rem; color: var(--muted); margin-bottom: 0.25rem; }
+      textarea { width: 100%; min-height: 4.5rem; font: inherit; padding: 0.6rem; border: 1px solid var(--line); border-radius: 6px; resize: vertical; }
+      .row { display: flex; gap: 0.75rem; align-items: end; margin-top: 0.75rem; flex-wrap: wrap; }
+      input[type=date] { padding: 0.45rem; font: inherit; border: 1px solid var(--line); border-radius: 6px; }
+      button { padding: 0.55rem 1.1rem; font: inherit; font-weight: 600; color: #fff; background: var(--accent); border: 0; border-radius: 6px; cursor: pointer; }
+      button:disabled { opacity: 0.6; cursor: progress; }
+      .hint { color: var(--muted); font-size: 0.85rem; }
+      .banner { padding: 0.7rem 0.9rem; border-radius: 6px; margin-bottom: 0.9rem; border-left: 4px solid; }
+      .stop { background: var(--stop-bg); border-color: var(--stop-line); }
+      .warn { background: var(--warn-bg); border-color: var(--warn-line); }
+      .error { background: var(--stop-bg); border-color: var(--stop-line); }
+      .answer { font-size: 1.05rem; margin: 0 0 1rem; }
+      table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+      th { text-align: left; color: var(--muted); font-weight: 500; padding: 0.35rem 0.5rem 0.35rem 0; border-bottom: 1px solid var(--line); }
+      td { padding: 0.45rem 0.5rem 0.45rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }
+      td.id { font-family: ui-monospace, monospace; white-space: nowrap; }
+      td.quote { color: var(--muted); }
+      ul.searched { margin: 0.25rem 0 0; padding-left: 1.2rem; color: var(--muted); font-size: 0.9rem; }
+      .meta { margin-top: 1rem; color: var(--muted); font-size: 0.8rem; }
+      .coverage { display: flex; flex-wrap: wrap; gap: 0.2rem 0.75rem; align-items: baseline; margin: 0 0 0.9rem;
+                  padding: 0.5rem 0.75rem; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; font-size: 0.85rem; }
+      .coverage span { color: var(--muted); }
+      .coverage .note { flex-basis: 100%; }
+      .coverage[hidden] { display: none; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>ColdLade · Ask the order history</h1>
+      <span><a href="/">Order intake</a> · <small id="model">model: …</small></span>
+    </header>
+
+    <main>
+      <section>
+        <h2>Ask a question about past orders and shipments</h2>
+        <div class="coverage" id="coverage" hidden>
+          <strong id="cov-range"></strong>
+          <span id="cov-ends"></span>
+          <span id="cov-counts"></span>
+          <span class="note" id="cov-note"></span>
+        </div>
+        <label for="question">Your question, in your own words</label>
+        <textarea id="question" placeholder="Type a question..."></textarea>
+        <div class="row">
+          <div>
+            <label for="asof">Answer as of</label>
+            <input type="date" id="asof" />
+          </div>
+          <button id="ask">Ask</button>
+          <span class="hint" id="status"></span>
+        </div>
+      </section>
+
+      <section>
+        <h2>Answer</h2>
+        <div id="result"><p class="hint">The answer appears here, with every record it came from.</p></div>
+      </section>
+    </main>
+
+    <script type="module">
+      // Same Gradio client as the order-intake page (loaded from a public CDN).
+      import { Client } from "https://cdn.jsdelivr.net/npm/@gradio/client/dist/index.min.js";
+
+      const $ = (id) => document.getElementById(id);
+      const client = await Client.connect(window.location.origin);
+      fetch("/health").then((r) => r.json()).then((h) => ($("model").textContent = `model: ${h.model}`)).catch(() => {});
+
+      // What the records cover, worked out from the data itself (so it stays right when the data changes).
+      const month = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", year: "numeric" });
+      fetch("/coverage").then((r) => r.json()).then((c) => {
+        const kinds = ["shipment", "email", "attachment"].filter((k) => c[k]);
+        if (!kinds.length) return;
+        const from = kinds.map((k) => c[k].from).sort()[0];
+        const day = (iso) => new Date(iso + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+        const mail = ["email", "attachment"].filter((k) => c[k]).map((k) => c[k].last).sort().at(-1);
+        $("cov-range").textContent = `Records from ${month(from)}`;
+        $("cov-ends").textContent = [mail && `emails through ${day(mail)}`,
+                                     c.shipment && `TMS shipments through ${day(c.shipment.to)}`].filter(Boolean).join(" · ");
+        $("cov-counts").textContent = kinds.map((k) => `${c[k].count.toLocaleString()} ${k}s`).join(" · ");
+        $("cov-note").textContent = c.source !== "production"
+          ? "Demo data: synthetic orders, not real ones."
+          : "A shipment appears only after a carrier is booked." +
+            (c.live_mail ? " Email is added every weekday; TMS shipments aren't updated yet." : "");
+        $("coverage").hidden = false;
+      }).catch(() => {});
+      $("asof").value = new Date().toLocaleDateString("en-CA");
+
+      function el(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;   // textContent, never innerHTML: record text is untrusted
+        return node;
+      }
+
+      function render(a) {
+        const out = $("result");
+        out.innerHTML = "";
+        if (a.declined) out.appendChild(el("div", "banner stop", "Not answered from the records. What was checked is listed below."));
+        if (a.partial) out.appendChild(el("div", "banner warn", "The search stopped before finishing: this answer may be incomplete."));
+        out.appendChild(el("p", "answer", a.answer));
+
+        if (a.sources?.length) {
+          out.appendChild(el("h2", "", "Sources"));
+          const table = el("table");
+          const head = el("tr");
+          for (const t of ["Record", "Kind", "What it says"]) head.appendChild(el("th", "", t));
+          table.appendChild(head);
+          for (const s of a.sources) {
+            const tr = el("tr");
+            tr.append(el("td", "id", s.record_id), el("td", "", s.kind), el("td", "quote", `"${s.quote}"`));
+            table.appendChild(tr);
+          }
+          out.appendChild(table);
+        }
+        if (a.searched?.length) {
+          out.appendChild(el("h2", "", "What was searched"));
+          const ul = el("ul", "searched");
+          for (const s of a.searched) ul.appendChild(el("li", "", s));
+          out.appendChild(ul);
+        }
+        out.appendChild(el("p", "meta", `True as of ${a.as_of}.`));
+      }
+
+      $("ask").addEventListener("click", async () => {
+        const question = $("question").value.trim();
+        if (!question) { $("status").textContent = "Type a question first."; return; }
+        $("ask").disabled = true;
+        $("status").textContent = "Searching the records… (usually 10–60 seconds)";
+        const started = performance.now();
+        try {
+          const result = await client.predict("/answer_from_history", { question, as_of: $("asof").value });
+          render(JSON.parse(result.data[0]));
+          $("status").textContent = `Done in ${((performance.now() - started) / 1000).toFixed(1)}s`;
+        } catch (err) {
+          $("result").innerHTML = "";
+          $("result").appendChild(el("div", "banner error", `Something went wrong: ${err?.message || err}`));
+          $("status").textContent = "";
+        } finally {
+          $("ask").disabled = false;
+        }
+      });
+    </script>
+  </body>
+</html>

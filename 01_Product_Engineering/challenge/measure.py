@@ -22,6 +22,8 @@ from pathlib import Path
 
 import retrieval
 from llm import MODEL
+# The measured corpus is the frozen snapshot: never the live mail, even if the shell has it set.
+os.environ.pop("COLDLADE_LIVE_MAIL", None)
 
 REPO = Path(__file__).resolve().parents[2]
 LABELS = REPO / "use_case" / "data" / "retrieval.real.jsonl"

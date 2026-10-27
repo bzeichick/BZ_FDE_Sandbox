@@ -29,7 +29,7 @@ from rank_bm25 import BM25Okapi
 
 from corpus import Record, load_corpus
 from llm import MODEL, NUM_RETRIES, TIMEOUT_S, _provider_kwargs
-from schema import HistoryAnswer
+from schema import HistoryAnswer, HistoryQuestion
 import wiki
 
 SNIPPET = 1500       # characters of each record shown per search hit (one attachment can be 900K)
@@ -170,6 +170,9 @@ def dci_tools(as_of: date) -> tuple[list[dict], dict]:
     records, by_id = corpus()
     cutoff = as_of.isoformat()
     visible = [r for r in records if r.date and r.date <= cutoff]
+    # Pages first, then records NEWEST first: when more than GREP_LIMIT match, the recent ones must not
+    # be the ones cut off (live mail sits at the end of the corpus; a broad grep never reached it).
+    newest = sorted(visible, key=lambda r: r.meta.get("sent") or r.date, reverse=True)
     visible_ids = {r.id for r in visible}
     pages = wiki.pages_for(records, as_of)
 
@@ -182,7 +185,7 @@ def dci_tools(as_of: date) -> tuple[list[dict], dict]:
         except re.error:
             rx = re.compile(re.escape(pattern), re.I)
         hits, more = [], 0
-        named = list(pages.items()) + [(r.id, r.text) for r in visible]
+        named = list(pages.items()) + [(r.id, r.text) for r in newest]
         for name, text in named:
             if not rx.search(text):
                 continue
@@ -208,7 +211,10 @@ def dci_tools(as_of: date) -> tuple[list[dict], dict]:
         email = by_id.get(email_id)
         if not email or email.kind != "email" or email_id not in visible_ids:
             return f"(no email named {record_id!r})"
-        thread = [r for r in visible if r.kind == "email" and r.meta.get("thread") == email.meta.get("thread")]
+        # An email with no thread ID is its own thread (the synthetic orders have none); never group the
+        # missing IDs together, which would return every unthreaded email as one "thread".
+        thread_id = email.meta.get("thread")
+        thread = [r for r in visible if r.kind == "email" and thread_id and r.meta.get("thread") == thread_id] or [email]
         thread.sort(key=lambda r: r.meta.get("sent") or r.date)
         text = "\n\n=====\n\n".join(f"[{r.id}]\n{r.text}" for r in thread)
         return f"{len(thread)} messages, oldest first:\n\n" + text[:PAGE_LIMIT]
@@ -456,12 +462,14 @@ def hybrid_tools(as_of: date) -> tuple[list[dict], dict]:
 # ---------------------------------------------------------------------------
 
 SYSTEM = """You answer questions from a freight broker's order desk using only the broker's own records:
-TMS shipments, order emails, and email attachments. Today is {today}; records after that date don't exist yet.
+TMS shipments, order emails, and email attachments. Today is {today}; records after that date don't exist yet.{gap}
 
 - Investigate with the tools before answering. Records may use different words than the question,
   so if a search comes back thin, search again another way.
 - Stop as soon as the records answer the question. Mention small differences between records
   (e.g. 12:30 in the TMS vs 1pm in an email) in the answer instead of investigating them.
+- When records disagree (an appointment moved, a quote was revised), the most recent one wins: give the
+  latest, and say what it replaced and when.
 - Use only what the records say. If they don't answer the question, set declined to true and say so
   plainly; never fill the gap with a number from a record that only looks related.
 - A customer or facility page may be cited (kind "profile"), but only together with at least three of
@@ -496,7 +504,16 @@ def run_agent(question: str, as_of: date, tools: list[dict], funcs: dict, max_tu
     Returns the HistoryAnswer (None if the model never produced a valid one) and the trace
     Step 3 scores: every tool call, evidence characters read, tokens, latency, how it stopped.
     """
-    system = SYSTEM.format(today=as_of.isoformat(), schema=json.dumps(HistoryAnswer.model_json_schema()))
+    # When "today" is after some records stop, say where each stops: a missing record after that day means
+    # "not on record", not "didn't happen". Only in live use (live mail loaded, or the as-of date past the
+    # mailbox's last day): measure.py runs without live mail and every labelled question is dated on or
+    # before that day, so the measured prompt is unchanged.
+    stops = {kind: day for kind, day in records_end().items() if day < as_of.isoformat()}
+    live_use = coverage().get("live_mail") or "emails" in stops
+    gap = ("\nThe records stop before today: " + "; ".join(f"{kind} run through {day}" for kind, day in stops.items())
+           + ". Never treat a missing record from after those dates as something that didn't happen; say where the "
+           "records stop. A load booked after the TMS shipments stop can appear only in emails.") if stops and live_use else ""
+    system = SYSTEM.format(today=as_of.isoformat(), gap=gap, schema=json.dumps(HistoryAnswer.model_json_schema()))
     messages = [{"role": "system", "content": system}, {"role": "user", "content": question}]
     trace: list[dict] = []
     totals = {"evidence_chars": 0, "tokens_in": 0, "tokens_out": 0}
@@ -583,3 +600,53 @@ def combined_tools(as_of: date) -> tuple[list[dict], dict]:
         "or sets ('usually', 'how many', 'which customers'), read the customer or facility pages instead "
         "(list_pages, read_page): a search returns a sample, not a count.")
     return wiki_tools + search_tools, {**wiki_funcs, **search_funcs}
+
+# ---------------------------------------------------------------------------
+# The shipped technique (Step 4): answer_history(), and what it covers
+# ---------------------------------------------------------------------------
+
+@cache
+def coverage() -> dict:
+    """What the records cover, for the help text: per kind, how many and the dates most fall between.
+    Uses the 1st-99th percentile of dates, because a few records carry typo'd or future dates."""
+    records, _ = corpus()
+    out = {"source": "production" if os.environ.get("COLDLADE_DB") else "synthetic",
+        "live_mail": any(r.meta.get("live") for r in records)}
+    for kind in ("shipment", "email", "attachment"):
+        dates = sorted(r.date for r in records if r.kind == kind and r.date)
+        if dates:
+            cut = len(dates) // 100
+            out[kind] = {"count": len(dates), "from": dates[cut], "to": dates[-1 - cut], "last": dates[-1]}
+    return out
+
+def records_end() -> dict:
+    """Where each kind of record stops, for the prompt: emails run to the latest mail pull; TMS shipments
+    only to the export (they come from carrier rate confirmations, which the live pull doesn't save)."""
+    c = coverage()
+    ends = {}
+    mail = [c[k]["last"] for k in ("email", "attachment") if k in c]
+    if mail:
+        ends["emails"] = max(mail)
+    if "shipment" in c:
+        ends["TMS shipments"] = c["shipment"]["to"]   # 98th percentile: a few carry future pickup dates
+    return ends
+
+
+SHIPPED = dci_tools   # the technique decisions.md (Week 3) chose: direct corpus interaction over the wiki
+
+
+def answer_history(question: HistoryQuestion) -> HistoryAnswer:
+    """Answer one question from the desk's history with the shipped technique, naming its sources.
+
+    Always returns a HistoryAnswer: if the loop produced nothing valid, the answer is a decline that
+    says so, so every caller (the page, the eval harness, an agent in Week 5) handles one shape."""
+    as_of = question.as_of or date.today()
+    tools, funcs = SHIPPED(as_of)
+    run = run_agent(question.question, as_of, tools, funcs)
+    print(f"[history] calls={len(run['trace'])} evidence={run['evidence_chars']:,} "
+          f"tokens={run['tokens_in'] + run['tokens_out']:,} {run['latency_s']}s stopped={run['stopped']}", flush=True)
+    answer = run["answer"] or HistoryAnswer(
+        answer="I couldn't produce a reliable answer from the records for this question; please check it by hand.",
+        declined=True, as_of=as_of)
+    answer.as_of = as_of   # the answer is true as of the question's date, whatever the model wrote
+    return answer

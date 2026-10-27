@@ -92,11 +92,19 @@ ships.
 - A hosted multimodal embedding endpoint: not considered. It would add a third
   vendor for content that isn't actually visual.
 
-**Access control depends on email admin access.** Per-user permissions on the
-retrieval tools (see the Week 3 decision) can only come from the source if we
-index each person's mailbox through Microsoft 365 directly. Until the admin
-account is recovered, the corpus is a static export, and permissions have to be
-rebuilt as tags at index time.
+**Mail access now comes from Microsoft 365, scoped to one mailbox (updated 10/26).** A registered app
+reads one co-owner's mailbox read-only through the Microsoft Graph API (Mail.Read, limited by the tenant
+to that mailbox; a test against a second mailbox was refused). A job on the broker's server runs every 15
+minutes on weekdays, keeps only business mail (newsletters, billing and system mail are skipped and
+never downloaded), and the app reads what has been pulled since the export.
+- What it changes: the corpus is no longer only a static export, and per-mailbox access is now
+  possible at the source rather than rebuilt by hand.
+- What it doesn't: the one mailbox still receives copies of the shared order, dispatch and accounting
+  addresses and of the other co-owner's mail, so per-user permissions on the retrieval tools still have
+  to be rebuilt as tags at index time (see the Week 3 decision). Indexing each person's own mailbox is
+  the cleaner route, and it now needs only that mailbox added to the app's scope.
+- Still missing: TMS shipments don't update from this feed (it skips the broker's own carrier tenders,
+  where the rate confirmations come from); that needs the TMS export, held for Week 5.
 
 ---
 

@@ -427,11 +427,3 @@ class HistoryAnswer(BaseModel):
         description="True if the search stopped before it finished (turn budget used up); "
                     "the answer may be incomplete.",
     )
-
-
-def answer_history(question: HistoryQuestion) -> HistoryAnswer:
-    """Answer one question from the desk's history, naming the records it came from.
-
-    Filled in at Step 4 with the retrieval technique Step 3 picks.
-    """
-    raise NotImplementedError

@@ -599,3 +599,13 @@ challenge, which carries the full detail.
 
 Everything after this week assumes your app answers from your data and can say
 where the answer came from.
+
+---
+
+## Submission
+
+**What the endpoint does on the decline question:** asked for a customer's rate on a lane (q04),
+`answer_from_history` returns `declined: true` with a plain "not on record" answer, cites the
+shipments it checked only as what the broker pays the carrier, and lists what it searched; in
+every final run it declined without stating a rate. Bad input (an empty question or an invalid
+date) comes back the same way, as a decline in the same shape, never an error.
