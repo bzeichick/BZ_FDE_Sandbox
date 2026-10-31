@@ -31,7 +31,7 @@ RESULTS = REPO / "03_Retrieval" / "challenge" / "results.md"
 USER_RESULTS = REPO / "03_Retrieval" / "challenge" / "results_users.md"
 RUNS = REPO / "use_case" / "data" / "runs"
 
-MAX_TURNS = 8
+MAX_TURNS = 12
 
 # Each technique is a name and a function that returns (tool definitions, tool functions)
 # for one question's as_of date. Steps 3c and 3d add the other two here.

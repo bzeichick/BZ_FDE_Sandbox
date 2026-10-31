@@ -185,16 +185,21 @@ def dci_tools(as_of: date) -> tuple[list[dict], dict]:
         except re.error:
             rx = re.compile(re.escape(pattern), re.I)
         hits, more = [], 0
-        named = list(pages.items()) + [(r.id, r.text) for r in newest]
-        for name, text in named:
+        named = [(name, text, "") for name, text in pages.items()] + \
+                [(r.id, r.text, str(r.meta.get("sent") or r.date or "")[:16]) for r in newest]
+        for name, text, when in named:
             if not rx.search(text):
                 continue
             if len(hits) >= GREP_LIMIT:
                 more += 1          # keep counting, so "how many records mention X" stays answerable
                 continue
-            for number, line in enumerate(text.splitlines(), 1):
+            lines = text.splitlines()
+            label = f"{name} [{when}]" if when else name
+            for number, line in enumerate(lines, 1):
                 if rx.search(line) and len(hits) < GREP_LIMIT:
-                    hits.append(f"{name}:{number}: {line.strip()[:200]}")
+                    after = lines[number].strip() if number < len(lines) else ""
+                    shown = line.strip()[:200] + (f" / {after[:120]}" if after else "")
+                    hits.append(f"{label}:{number}: {shown}")
         if not hits:
             return "(no matches)"
         return "\n".join(hits) + (f"\n(+{more} more pages/records also match; narrow the pattern)" if more else "")
@@ -222,7 +227,7 @@ def dci_tools(as_of: date) -> tuple[list[dict], dict]:
     tools = [
         tool("list_pages", "Read the index: every customer page and pickup-facility page, with shipment counts.", {}),
         tool("grep", "Search exact text or a regular expression across every page and record (shipments, emails, "
-                     "attachments). Returns matching lines as name:line: text, and how many more match.",
+                     "attachments). Returns matching lines, newest records first, as name [date]:line: text / next line, and how many more match.",
              {"pattern": {"type": "string"}}, ["pattern"]),
         tool("read_page", "Read one page by name (customer:<name>, facility:<address>, index) or one record by its ID "
                           "(84477, msg:16250, msg:16250#att1). Customer and facility pages carry counts and shares "
@@ -466,10 +471,21 @@ TMS shipments, order emails, and email attachments. Today is {today}; records af
 
 - Investigate with the tools before answering. Records may use different words than the question,
   so if a search comes back thin, search again another way.
-- Stop as soon as the records answer the question. Mention small differences between records
+- A load is filed under several reference numbers (SO, PO, TMS shipment or load number, customer
+  reference, appointment confirmation number), and a later email may cite only one of them. Once you
+  know which load the question is about, search each of its other reference numbers before answering,
+  but a customer PO can be reused on a later load: count a record as the same load only if it also
+  matches another of the load's references or its dates fit, and never cite a record from a different load. An appointment confirmation number can
+  stay the same through every reschedule, so it never tells you on its own which appointment is current:
+  compare the dates of the records.
+- Stop as soon as the records answer the question, but not before the reference search above. Mention small differences between records
   (e.g. 12:30 in the TMS vs 1pm in an email) in the answer instead of investigating them.
 - When records disagree (an appointment moved, a quote was revised), the most recent one wins: give the
   latest, and say what it replaced and when.
+- Every dollar amount in the answer must say whose money it is: the customer rate (what the broker
+  charges or quoted the customer) or the carrier cost (what the broker pays the carrier). TMS shipment
+  records and carrier rate confirmations show carrier cost only; never present carrier cost as our
+  rate. If a record doesn't make clear which it is, say that instead of guessing.
 - Use only what the records say. If they don't answer the question, set declined to true and say so
   plainly; never fill the gap with a number from a record that only looks related.
 - A customer or facility page may be cited (kind "profile"), but only together with at least three of
@@ -498,7 +514,7 @@ def ask_model(messages: list[dict], tools: list[dict], tool_choice: str | None =
     return response.choices[0].message, getattr(response, "usage", None)  # type: ignore
 
 
-def run_agent(question: str, as_of: date, tools: list[dict], funcs: dict, max_turns: int = 8) -> dict:
+def run_agent(question: str, as_of: date, tools: list[dict], funcs: dict, max_turns: int = 12) -> dict:
     """Let the model call tools until it answers or runs out of turns.
 
     Returns the HistoryAnswer (None if the model never produced a valid one) and the trace
