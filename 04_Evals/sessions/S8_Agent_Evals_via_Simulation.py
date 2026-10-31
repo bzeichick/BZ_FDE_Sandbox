@@ -182,6 +182,42 @@ def _(mo):
     return
 
 
+@app.cell
+def _(mo):
+    mo.mermaid(r"""
+    flowchart LR
+        customer["Customer<br/>email + PDF / XLS attachments"]
+        ops["Ops reviewer<br/>approve · edit · handle escalations"]
+        tms[("TMS")]
+        profiles[("Customer profiles<br/>by sender domain · planned")]
+
+        subgraph endpoint["Order entry: draft_shipment_from_order · single turn, no tools"]
+            direction LR
+            req["Request<br/>order_text + received_date"]
+            solve["solve() · Opus 5.5<br/>INTAKE_RULES + schema<br/>one call, one retry on bad JSON"]
+            resp["Response<br/>refs · stops · dates · temperature<br/>pallets · pallet_spots · weight · rate<br/>questions · confirmations · flags<br/>needs_human"]
+            req --> solve --> resp
+        end
+
+        subgraph scoring["What Week 4 scores"]
+            direction TB
+            mf["Model-free scorers · yours<br/>temperature range · silent gaps<br/>needs_human · JSON parses"]
+            judge["Judge · gpt-6.1-sol<br/>checked against 20 hand scores"]
+            gate["Gate · yours<br/>harness.compare vs baseline.json"]
+            mf --> gate
+            judge --> gate
+        end
+
+        customer -- "order email" --> req
+        profiles -. "reference block" .-> solve
+        resp -- "draft" --> ops
+        ops -- "questions + confirmations" --> customer
+        ops -- "approve → agent enters" --> tms
+        resp -. "Response vs golden / hand score" .-> scoring
+    """)
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -677,7 +713,7 @@ def _(mo):
     system — and what would your agent do if it assumed the answer instead of
     asking? If you cannot name one, that is the first scenario to write.
 
-    **Answer:**
+    **Answer:** Our customers routinely withhold the temperature (a trucking form or a weekly rate list says nothing about frozen vs. refrigerated) and often the pickup location, because they assume the broker already knows where they ship from. If the agent assumed instead of asking, it would book a temperature the load doesn’t need or, worse, the wrong mode: frozen product on a refrigerated or dry trailer is a total loss. Likewise, defaulting to the customer’s most frequent pickup site would send a truck to the wrong dock. The right behaviour is to leave the field blank and ask, which our endpoint does today for temperature and which customer profiles must not override.
 
     ---
     ## Task 2 — The capability report, the regression gate, and the saved baseline
@@ -777,6 +813,8 @@ def _(
 ):
     def framework_task_completion(traj) -> float:
         """DeepEval's end-to-end judge on a trajectory: opening in, last reply out, tool trace attached."""
+        if not (traj.last_agent_reply or "").strip():
+            return 0.0  # an empty final reply completed nothing; DeepEval refuses to score it
         metric = TaskCompletionMetric(model=FRAMEWORK_JUDGE, async_mode=False)
         metric.measure(
             LLMTestCase(
@@ -920,7 +958,7 @@ def _(BASELINE_PATH, CFG, mo):
     text checks would you stop maintaining; if it cannot, what is the closest
     thing to state you could check?
 
-    **Answer:**
+    **Answer:** Yes — success is the shipment record that would be entered in the TMS, so it can be asserted field by field: refs include the customer PO, the temperature range is the mode’s standard unless the order states one, pallet_spots is filled when spots are stated, every empty booking field appears in questions or flags, and needs_human matches the label. With those assertions I would stop maintaining word-overlap scores and required-substring checks on the output, keeping a judge only for the free text a person reads — the customer questions, confirmations and the escalation reason. The strongest version checks real state rather than the draft: push the approved record into a TMS sandbox and read back what was saved, which ColdLade already supports.
 
     ---
     ## Task 3 — Point it at your own agent, and read one transcript
@@ -966,6 +1004,134 @@ def _(BASELINE_PATH, CFG, mo):
     > real person before you present it; the rehearsal is graded, and it is
     > the step people skip.
     """)
+    return
+
+
+@app.cell
+def _(Path, Scenario, mo):
+    import sys as _sys
+    _sys.path.insert(0, str(Path(mo.notebook_dir()).parent.parent / "01_Product_Engineering" / "challenge"))
+    from schema import Request as OrderRequest, solve as order_solve
+
+    ORDER_DATE = "2026-10-30"
+
+    def render_draft(r) -> str:
+        """What a reviewer sees: the filled fields, the questions, and whether it needs a person."""
+        d = r.model_dump(mode="json")
+        lines = [f"Refs: {', '.join(d['refs']) or '-'}"]
+        for stop in ("origin", "destination"):
+            if d.get(stop):
+                lines.append(f"{stop.title()}: " + ", ".join(str(v) for v in d[stop].values() if v))
+        if d.get("temp_mode"):
+            lines.append(f"Temp: {d['temp_mode']} {d.get('temp_min_f')}..{d.get('temp_max_f')}F")
+        lines.append(f"Pallets {d.get('pallets')} · weight {d.get('weight_lb')} lb")
+        for q in d.get("questions", []):
+            lines.append(f"Question: {q['question'] if isinstance(q, dict) else q}")
+        if d.get("needs_human"):
+            lines.append(f"NEEDS A PERSON: {d.get('needs_human_reason')}")
+        return "\n".join(lines)
+
+    def order_agent(remember: bool):
+        """My endpoint as agent(traj). remember=False is what it does today: the latest message only."""
+        def agent(traj):
+            user_text = [text for who, text in traj.turns if who == "user"]
+            order_text = "\n\n".join(user_text) if remember else user_text[-1]
+            response = order_solve(OrderRequest.model_validate({"order_text": order_text, "received_date": ORDER_DATE}))
+            traj.state = response          # the verifier reads this, not the words
+            return render_draft(response)
+        return agent
+
+    single_turn_agent = order_agent(remember=False)
+    remembering_agent = order_agent(remember=True)
+
+    ORDER_SCENARIOS = [
+        Scenario(
+            name="must do: complete frozen order",
+            capability="extraction",
+            goal="Get a complete frozen order drafted correctly",
+            opening=("PO# TEST-501. Pick up Acme Cold Storage, 100 Harbor Rd, Vernon CA 90058, ready 11/3. "
+                     "Deliver to Sample Foods DC, 200 Main St, Reno NV 89502, by 11/5. "
+                     "4 pallets, 320 cases, 7,200 lb. Frozen -10."),
+            success=["TEST-501", "Temp: frozen -10"],
+            must_not=["needs a person"],
+        ),
+        Scenario(
+            name="must ask: temperature withheld",
+            capability="asks_for_missing",
+            goal="Book an order without saying the temperature unless asked",
+            opening=("PO# TEST-502. Pick up Acme Cold Storage, 100 Harbor Rd, Vernon CA 90058, ready 11/3. "
+                     "Deliver to Sample Foods DC, 200 Main St, Reno NV 89502. 2 pallets, 160 cases, 3,400 lb."),
+            knows={"temperature": "frozen, -10F"},
+            success=["TEST-502", "Temp: frozen"],
+        ),
+        Scenario(
+            name="must refuse: update to a booked load",
+            capability="escalation",
+            goal="Change an order that is already booked",
+            opening=("Garland PO has been updated to # TEST-503-1.\n"
+                    "--- Attachment: Bill of Lading ---\n"
+                    "PICK UP FRIDAY 7/18. Ship to: Sample ISD Warehouse, 701 N First St, Garland TX 75040. "
+                    "480 cases, 6 pallets, 8,640 lb. Product must remain frozen 0°F or less."),
+            success=["needs a person"],
+        ),
+    ]
+
+    # The verifier: assertions about the record, not about what was said.
+    ORDER_VERIFY = {
+        "must do: complete frozen order": lambda r: any("TEST-501" in x for x in r.refs) and r.temp_mode == "frozen" and r.temp_min_f == -10 and not r.needs_human,
+        "must ask: temperature withheld": lambda r: any("TEST-502" in x for x in r.refs) and r.temp_mode == "frozen",
+        "must refuse: update to a booked load": lambda r: bool(r.needs_human),
+    }
+
+    def order_verified(traj) -> float:
+        state = getattr(traj, "state", None)
+        return float(state is not None and bool(ORDER_VERIFY[traj.scenario.name](state)))
+
+    print(f"✅ {len(ORDER_SCENARIOS)} order scenarios; endpoint wrapped two ways")
+    return (
+        ORDER_SCENARIOS,
+        order_verified,
+        remembering_agent,
+        single_turn_agent,
+    )
+
+
+@app.cell
+def _(mo):
+    run_mine = mo.ui.run_button(label="📏 Run my three order scenarios: single-turn vs remembers the thread")
+    run_mine
+    return (run_mine,)
+
+
+@app.cell
+def _(
+    ORDER_SCENARIOS,
+    mo,
+    order_verified,
+    remembering_agent,
+    run_mine,
+    sim,
+    single_turn_agent,
+    ui,
+):
+    mo.stop(not run_mine.value, mo.md("*Press the button to run your three scenarios.*"))
+
+    _rows, _trajs = [], []
+    for _label, _agent in [("single-turn", single_turn_agent), ("remembers the thread", remembering_agent)]:
+        for _scenario in ORDER_SCENARIOS:
+            _traj = sim.simulate(_scenario, _agent, sim.scripted_user)
+            _trajs.append((_label, _traj))
+            _rows.append({"agent": _label, "scenario": _scenario.name,
+                          "text check": "✅" if sim.text_check(_traj) else "❌",
+                          "state check": "✅" if order_verified(_traj) else "❌",
+                          "turns": len(_traj.turns), "ended": _traj.ended_because})
+
+    _worst_label, _worst = next(((l, t) for l, t in _trajs if not order_verified(t)), _trajs[0])
+    mo.vstack([
+        ui.table(_rows, title="My order endpoint: three scenarios, two memory settings"),
+        mo.md(f"### One transcript in full: {_worst_label}, {_worst.scenario.name}"),
+        mo.md("\n\n".join(f"**{who}:**\n```\n{text}\n```" for who, text in _worst.turns)),
+    ])
     return
 
 

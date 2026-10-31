@@ -200,7 +200,14 @@ def _(GOLDEN, mo, read_jsonl):
     # Assigned only once the gate has passed, so that in a plain Jupyter kernel
     # (where mo.stop is an ordinary exception) nothing downstream can run on the
     # template by accident -- it fails with NameError instead, which is honest.
-    SEEDS = golden_rows
+    SEEDS = [
+        {
+            **seed,
+            "must_include": seed["output"].get("refs", []),
+            "should_decline": bool(seed["output"].get("needs_human_reason")),
+        }
+        for seed in golden_rows
+    ]
     mo.md(f"✅ {len(SEEDS)} golden examples — your ground truth.")
     return (SEEDS,)
 
@@ -325,16 +332,27 @@ def _(
     SEEDS,
     SingleTurnParams,
     framework_button,
+    json,
     mo,
     ui,
 ):
     mo.stop(not framework_button.value, mo.md("*Press the button: one dataset, two systems, seven metric columns.*"))
 
     # ---- Half one: your goldens, two systems, two answer-level metrics -------
-    FRAMEWORK_DATASET = EvaluationDataset(
-        goldens=[Golden(input=seed["input"], expected_output=seed["output"]) for seed in SEEDS]
-    )
-    answer_key = {seed["input"]: seed["output"] for seed in SEEDS}
+    goldens = [
+        Golden(
+            input=json.dumps(seed["input"]),
+            expected_output=json.dumps(seed["output"]),
+            additional_metadata={
+                "input_fields": seed["input"],
+                "expected_fields": seed["output"],
+            },
+        )
+        for seed in SEEDS
+    ]
+    FRAMEWORK_DATASET = EvaluationDataset(goldens=goldens)
+
+    answer_key = {json.dumps(seed["input"]): json.dumps(seed["output"]) for seed in SEEDS}
     FRAMEWORK_SYSTEMS = {"echo the input": lambda text: text, "oracle (cheats)": lambda text: answer_key[text]}
 
     correctness_metric = GEval(
@@ -536,6 +554,7 @@ def _(mo):
     looking.
 
     **Answer:**
+    The already-judged work lives in the broker’s TMS: each shipment record is an order-entry person’s (ops, sales or a co-founder) judgment of what the linked order email asked for, and later amendments in the TMS or “updated” emails mark the ones that were wrong. Beyond that, the broker’s sales and ops staff labelled a set of answers during the TC3 sessions against a dated mail snapshot — the only outputs a human has explicitly scored so far.
 
     ---
     ## Task 3 — Deterministic metrics
@@ -605,7 +624,10 @@ def _():
             "not enough information",
             "unable",
         )
-        return float(any(signal in str(actual).lower() for signal in signals))
+        text = str(actual).lower()
+        if "needs_human_reason" in text and "needs_human_reason': none" not in text and 'needs_human_reason": null' not in text:
+            return 1.0
+        return float(any(signal in text for signal in signals))
 
     return contains_required, declines, exact_match, re, token_f1
 
@@ -616,6 +638,7 @@ def _(
     contains_required,
     declines,
     exact_match,
+    json,
     report,
     run_eval,
     token_f1,
@@ -632,8 +655,8 @@ def _(
     baseline_results = run_eval(SEEDS, lambda x: x, SCORERS)
 
     # A cheating "perfect" system, to prove the harness can see a difference.
-    answer_by_input = {seed["input"]: seed["output"] for seed in SEEDS}
-    oracle_results = run_eval(SEEDS, lambda x: answer_by_input[x], SCORERS)
+    answer_by_input = {json.dumps(seed["input"]): seed["output"] for seed in SEEDS}
+    oracle_results = run_eval(SEEDS, lambda x: answer_by_input[json.dumps(x)], SCORERS)
 
     ui.table(
         [
@@ -655,6 +678,29 @@ def _(
         title="Sanity check: can the harness tell these apart?",
     )
     return SCORERS, answer_by_input
+
+
+@app.cell
+def _(json):
+    def needs_human_match(actual, case: dict) -> float:
+        """Did it flag a human exactly when it should? Catches missed AND unneeded escalations."""
+        expected = bool(case["output"].get("needs_human"))
+        if isinstance(actual, (dict, list)):
+            parsed = actual
+        else:
+            text = str(actual)
+            try:
+                parsed = json.loads(text)
+            except ValueError:
+                try:
+                    parsed = json.loads(text[text.index("{"): text.rindex("}") + 1])
+                except ValueError:
+                    return 0.0  # not JSON at all: can't be entered into the TMS, so it fails
+        if isinstance(parsed, list):
+            parsed = parsed[0] if parsed else {}
+        return float(bool(parsed.get("needs_human")) == expected)
+
+    return (needs_human_match,)
 
 
 @app.cell(hide_code=True)
@@ -690,7 +736,7 @@ def _(mo):
     no model at all, and what would the *oracle* answer be for one of them —
     the output that must score 1.0 on that scorer, or the scorer is wrong?
 
-    **Answer:**
+    **Answer:** The failure I most worry about is answering from a superseded update — quoting an old delivery appointment because the latest change was filed under a different reference number (the PO instead of the SO). A contains_required check catches it with no model: each golden lists the final appointment’s date, time and confirmation number, and the answer must contain all three. For the case that exposed it, the oracle answer is the final appointment — “Wed 10/21, 08:00, frozen dock, confirmation 447071” — which must score 1.0, while an answer quoting the superseded 10/22 06:00 appointment scores 0.
 
     ---
     ## Task 4 — LLM as a judge, and the check before you believe it
@@ -836,13 +882,24 @@ def _(SEEDS, mo):
 
 
 @app.cell
-def _(EVALS, SEEDS, answer_by_input, judge, mo, np, read_jsonl, run_check, ui):
+def _(
+    EVALS,
+    SEEDS,
+    answer_by_input,
+    json,
+    judge,
+    mo,
+    np,
+    read_jsonl,
+    run_check,
+    ui,
+):
     mo.stop(not run_check.value, mo.md("*Press the button to check the judge.*"))
 
     # Separation: the judge over the two systems the harness already proved apart.
     with mo.status.spinner(title="Judging the echo and oracle outputs…"):
         echo_judged = [judge(seed["input"], seed) for seed in SEEDS]
-        oracle_judged = [judge(answer_by_input[seed["input"]], seed) for seed in SEEDS]
+        oracle_judged = [judge(answer_by_input[json.dumps(seed["input"])], seed) for seed in SEEDS]
 
     SEPARATION = [
         {"outputs": "echo (known bad)", "judge mean": f"{np.mean(echo_judged):.2f}", "judge min–max": f"{min(echo_judged):.2f}–{max(echo_judged):.2f}"},
@@ -934,7 +991,7 @@ def _(mo):
     on — and should you score it at all, or record it as a signal and score
     something objective instead?
 
-    **Answer:**
+    **Answer:** Two people at the broker would disagree on whether a scheduled pickup is “close enough” to the customer’s requested date — a Tuesday request moved to Thursday’s consolidated LTL load is acceptable to one person and a problem to another, depending on the customer and the cost saved. I wouldn’t score that judgment; I’d record the gap between requested and scheduled date as a signal, and score the objective parts instead: did the system capture the customer’s requested date exactly, and did it flag the order whenever the scheduled date differs from it.
 
     ---
     ## Task 5 — Run the evals: improve the eval, then improve the app
@@ -1003,13 +1060,14 @@ def _(EVALS, SEEDS, json, np, re):
 
     CORRUPTIONS = ("number", "negate", "unsupported", "entity")
     corruption_rng = np.random.default_rng(7)
-    golden_names = sorted({name for seed in SEEDS for name in NAME_PATTERN.findall(seed["output"])})
+    golden_names = sorted({name for seed in SEEDS for name in NAME_PATTERN.findall(json.dumps(seed["output"]))})
 
     SYNTHETIC = []
     for seed in SEEDS:
+        output_text = json.dumps(seed["output"])
         for failure_kind in CORRUPTIONS:
-            broken = corrupt(seed["output"], failure_kind, golden_names, corruption_rng)
-            if broken and broken != seed["output"]:
+            broken = corrupt(output_text, failure_kind, golden_names, corruption_rng)
+            if broken and broken != output_text:
                 SYNTHETIC.append({**seed, "actual": broken, "label": "wrong", "failure": failure_kind})
 
     # This file is the challenge's deliverable: your generated failures, labelled.
@@ -1283,7 +1341,7 @@ def _(
         [
             ui.table(PROMPT_ROWS, title=f"One change to the app, every scorer, n={len(SEEDS)}"),
             ui.table(
-                [{"question": result.case["input"][:60], "basic": basic.actual[:80], "elaborate": result.actual[:80]} for basic, result in zip(BASIC_RESULTS, ELABORATE_RESULTS)][:4],
+                [{"question": str(result.case["input"].get("order_text", result.case["input"]))[:60], "basic": str(basic.actual)[:80], "elaborate": str(result.actual)[:80]} for basic, result in zip(BASIC_RESULTS, ELABORATE_RESULTS)][:4],
                 title="The first four answers, side by side",
             ),
         ]
@@ -1329,7 +1387,7 @@ def _(mo):
     to. Then say how many cases you would need before the interval could show
     a five-point change, and what Loop A lets you do about it.
 
-    **Answer:**
+    **Answer:** Next I’d change the retriever so it also searches a load’s other reference numbers (PO, SO, load and confirmation #), which should move the required column on cases where the final update was filed under a different number than the one asked about — translating to the share of orders the broker’s staff would have to correct before entering them into the TMS, since a superseded appointment means a missed or rebooked delivery. My earlier table showed a true five-point change only becomes visible at around 200 cases, against my 12 goldens. Loop A lets me close that gap cheaply by generating labelled wrong answers from the goldens I have, including a “superseded reference” failure, instead of hand-writing hundreds of cases.
 
     ---
     ## Task 6 — The framework in your harness, and Marcus's page
@@ -1366,6 +1424,60 @@ def _(mo):
 
 
 @app.cell
+def _(BASELINE_REPORTS, SEEDS, json, mo):
+    _elab = list(zip(SEEDS, BASELINE_REPORTS["rules prompt"].results))
+    _worst = sorted(_elab, key=lambda pair: pair[1].scores.get("correctness (GEval)", 0.0))[:3]
+
+    _blocks = []
+    for _seed, _r in _worst:
+        _actual = _r.actual if isinstance(_r.actual, str) else json.dumps(_r.actual, indent=2)
+        _blocks.append(mo.md(
+            f"### Judge score {_r.scores.get('correctness (GEval)', 0.0):.2f}\n\n"
+            f"**Expected (answer key)**\n```json\n{json.dumps(_seed['output'], indent=2)}\n```\n\n"
+            f"**Rules prompt answered**\n```\n{_actual}\n```"
+        ))
+    mo.vstack(_blocks) if _blocks else mo.md("*No missed escalations in this run.*")
+    return
+
+
+@app.cell
+def _():
+    ORDER_PROMPT = """You are an order-entry assistant for a freight broker. Read the customer's order email below and turn it into one JSON object that a person will review and then enter into the TMS.
+
+    Reply with a single JSON object only — never a list, no text before or after it, no markdown fences. Even when you are unsure, return the JSON and record the uncertainty in "questions", "flags" or "needs_human_reason".
+
+    Use exactly the fields of the example answer, with the same names and nesting. Use null for anything the email does not state. Always include "changes", "questions", "confirmations" and "flags" lists, empty if there is nothing to put in them.
+
+    Rules:
+    - Dates: use YYYY-MM-DD. "Ready" or "available" goes in ready_date. A single "deliver by" or "due" date goes in delivery_date. Use delivery_window only for a range or a phrase like "week of 11/2". If no delivery date is given, leave it null and add the flag DELIVERY_TO_BE_SCHEDULED; do not ask the customer for one.
+    - Pickup: the broker sets the actual pickup from the next available consolidated LTL load, so a requested pickup date, or a choice like "10/28 or 10/29", is normal. Leave pickup_date null unless a pickup is confirmed, add the flag PICKUP_TO_BE_SCHEDULED, and do not escalate for it.
+    - Temperature mode: temp_mode is "frozen", "refrigerated" or "ambient". "REFER" or "reefer" with no number means refrigerated; "REFER (FROZEN)" means frozen. "Dry", "dry van" or "no temp needed" means ambient. If the email says nothing about temperature, leave temp_mode, the range and the setpoint null and ask which; silence about temperature is never ambient.
+    - Temperature range: temp_min_f and temp_max_f are the product range the TMS records: frozen -10 to 0, refrigerated 34 to 38, ambient null. Use a different range only if the email states one explicitly, such as "-10 to 0". Never build a range from a single number.
+    - Setpoint: a single number such as "frozen -10" or "set reefer at -10 deg F" is the setpoint: put it in setpoint_f with setpoint_source "stated". If the load is frozen and no number is given, use setpoint_f -10 with setpoint_source "customer_default". Otherwise leave setpoint_f and setpoint_source null.
+    - Precool: precool is true if the email asks for a pre-cooled trailer; otherwise null.
+    - Assumed temperature: only when the mode is stated but no temperature number is given, add the flag TEMP_STANDARD_ASSUMED and a confirmation {{"field": "temp_mode", "statement": "We'll run PO <ref> <mode> at <min>F to <max>F. Let us know if that's not right."}}.
+    - Pieces: pieces is the count below the pallet level as stated (cases, bags, crates...). piece_unit is one of CRATE, CASE, BAG, CARTON, BOX, TOTE, DRUM, PAIL, BUNDLE, PIECE: "cases" or "cs" is CASE, "bags" or "sacks" is BAG; bags are never cases. A count with no unit is CRATE plus the flag PIECE_UNIT_ASSUMED. If no count is given, leave pieces and piece_unit null and ask for it.
+    - Rate: if the email states a rate, put it in rate_usd. If not, leave it null and add the flag RATE_LOOKUP_NEEDED. A requested extra service you cannot price is a question or a flag, not a reason to escalate.
+    - Changes: if the email revises an earlier order or quote (for example pallets 6 to 4), list each change in "changes" as {{"field": "<field>", "was": "<old>", "now": "<new>"}}. If quantities changed after a rate was quoted, leave rate_usd null and add the flag REQUOTE_NEEDED; never carry an old quote onto a changed load.
+    - Questions: for every missing detail needed to book the load (pickup address, consignee name, piece count and so on) add one entry {{"field": "<field name>", "question": "<question to the customer>"}}.
+    - needs_human: true when ANY of these is true, otherwise false:
+      (a) no pickup location or no delivery location is given;
+      (b) the email covers more than one shipment (for example two POs going to different places) -- fill in only the details all shipments share (refs, origin, ready date, temperature), leave destination, pallets, pieces, piece_unit and weight null, and say in needs_human_reason that each must be entered separately;
+      (c) the email is about a shipment already picked up or in progress (a status update or a change to an existing load) rather than a new order -- say to check the TMS before entering anything;
+      (d) the email states a non-standard temperature: a frozen setpoint other than -10, a setpoint outside the standard range for its mode, or a range different from the standard -- say to check it against the customer's requirements.
+      When true, give a one-sentence needs_human_reason; otherwise null. Any other missing detail is a question, not a reason to escalate.
+
+    Example (a different order, and the answer an expert entered for it):
+    Q: {example_q}
+    A: {example_a}
+
+    Now enter this order:
+    Q: {question}
+    A:"""
+    return (ORDER_PROMPT,)
+
+
+@app.cell
 def _(
     BASIC_PROMPT,
     CFG,
@@ -1373,13 +1485,16 @@ def _(
     FRAMEWORK_JUDGE,
     GEval,
     LLMTestCase,
+    ORDER_PROMPT,
     SEEDS,
     SingleTurnParams,
     answer_with,
     contains_required,
     declines,
     exact_match,
+    json,
     mo,
+    needs_human_match,
     run_baseline,
     token_f1,
     ui,
@@ -1403,7 +1518,11 @@ def _(
 
     def framework_correctness(actual: str, case: dict) -> float:
         baseline_correctness.measure(
-            LLMTestCase(input=case["input"], actual_output=actual, expected_output=case["output"])
+            LLMTestCase(
+                input=json.dumps(case["input"]),
+                actual_output=actual if isinstance(actual, str) else json.dumps(actual),
+                expected_output=json.dumps(case["output"]),
+    )
         )
         return float(baseline_correctness.score or 0.0)
 
@@ -1412,16 +1531,18 @@ def _(
         "f1": token_f1,
         "required": contains_required,
         "declines": declines,
+        "needs_human": needs_human_match,
         "correctness (GEval)": framework_correctness,
     }
 
-    baseline_answer_key = {seed["input"]: seed["output"] for seed in SEEDS}
+    baseline_answer_key = {json.dumps(seed["input"]): seed["output"] for seed in SEEDS}
     # Echo and oracle bracket the range; the two prompts are the real systems.
     BASELINE_SYSTEMS = {
         "echo": lambda text: text,
         "basic prompt": answer_with(BASIC_PROMPT),
         "elaborate prompt": answer_with(ELABORATE_PROMPT),
-        "oracle": lambda text: baseline_answer_key[text],
+        "rules prompt": answer_with(ORDER_PROMPT),
+        "oracle": lambda text: baseline_answer_key[json.dumps(text)],
     }
     BASELINE_REPORTS = {}
     for baseline_name, baseline_system in BASELINE_SYSTEMS.items():
@@ -1440,7 +1561,7 @@ def _(
         ],
         title="One harness, four systems, five scorers — four you wrote, one from the framework",
     )
-    return BASELINE_PATH, BASELINE_REPORT
+    return BASELINE_PATH, BASELINE_REPORT, BASELINE_REPORTS
 
 
 @app.cell(hide_code=True)
