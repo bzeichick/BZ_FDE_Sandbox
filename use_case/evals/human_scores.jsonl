@@ -1,0 +1,20 @@
+{"trace": 4, "case": "M072", "pass": false, "human": 0.0, "why": "\"60 PALLETS 30 SPOTS\" entered as 60 pallets with no spots; ops books the 30 spots."}
+{"trace": 7, "case": "M021", "pass": false, "human": 0.0, "why": "\"Chilled @ 32\" turned into a 32–32 range; it's a setpoint, and ops booked 32–38."}
+{"trace": 9, "case": "M018", "pass": false, "human": 0.0, "why": "Both stop zips left blank and never asked or flagged."}
+{"trace": 19, "case": "M030", "pass": false, "human": 0.0, "why": "\"PO has been updated\" drafted as a new order instead of escalated as an update to an existing load."}
+{"trace": 23, "case": "M071", "pass": false, "human": 0.0, "why": "Temperature 0–10 copied from the order form's example text; the customer wrote \"Frozen 0 degrees\"."}
+{"trace": 24, "case": "M037", "pass": false, "human": 0.0, "why": "Revised quantity still pending customer confirmation drafted as a confirmed order, no escalation."}
+{"trace": 38, "case": "M001", "pass": false, "human": 0.0, "why": "Escalated as two shipments, but this is one load (frozen plus one dry pallet); minimum temperature left blank."}
+{"trace": 39, "case": "M097", "pass": false, "human": 0.0, "why": "\"Please accept this tender\" isn't an order; should escalate instead of asking the customer six questions."}
+{"trace": 41, "case": "M014", "pass": false, "human": 0.0, "why": "Added a stale reference number left over from a reused form; date conflict written as prose."}
+{"trace": 47, "case": "M033", "pass": false, "human": 0.0, "why": "Temperature 30–44, but the order says 36–44; the 30 isn't in the order."}
+{"trace": 3, "case": "M002", "pass": true, "human": 1.0, "why": "No pickup location given: left blank, asked, and escalated. Nothing invented."}
+{"trace": 13, "case": "M098", "pass": true, "human": 1.0, "why": "Thin load tender: everything missing is blank and asked; nothing invented."}
+{"trace": 15, "case": "M027", "pass": true, "human": 1.0, "why": "Caught two different delivery addresses in the documents and asked which one."}
+{"trace": 16, "case": "M048", "pass": true, "human": 1.0, "why": "Three shipments in one email with no origin: escalated, quantities left for the split."}
+{"trace": 17, "case": "M043", "pass": true, "human": 1.0, "why": "Every field matches, including the customer rate and the week-of delivery window."}
+{"trace": 25, "case": "M008", "pass": true, "human": 1.0, "why": "Spotted the wrong year in the pickup date and asked the customer to confirm it."}
+{"trace": 30, "case": "M046", "pass": true, "human": 1.0, "why": "Three-stop load escalated with a clear reason, including pallets vs spots."}
+{"trace": 32, "case": "M051", "pass": true, "human": 1.0, "why": "Two bills of lading in one email: escalated with both shipments described."}
+{"trace": 36, "case": "M056", "pass": true, "human": 1.0, "why": "Customer stated an explicit \"0 to 0\" range and the tool followed it."}
+{"trace": 48, "case": "M026", "pass": true, "human": 1.0, "why": "\"Refrigerated 38\" treated as a setpoint and the standard 34–38 range entered."}

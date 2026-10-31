@@ -33,8 +33,10 @@ class Request(BaseModel):
     # Required: there is nothing to do without the order itself.
     order_text: str = Field(
         min_length=1,
-        description="The full text of ONE order: the email body, with any attached "
-                    "PDFs (PO, freight confirmation) converted to text and pasted below it."
+        description="The full text of one order thread: the latest message with every earlier "
+                    "message in the thread below it, and any attached PDFs (PO, freight "
+                    "confirmation) converted to text. Answers to this endpoint's questions arrive "
+                    "as later messages in the same thread, so send the whole thread."
     )
 
     # Required: turns relative dates ("pick up Friday") into real calendar dates.
@@ -52,7 +54,9 @@ class Request(BaseModel):
 # "ambient" added after Week 2: operations said every order is "Dry" or "Temp
 # Controlled", and dry freight (or "no temp needed") ships ambient, with no range.
 TempMode = Literal["frozen", "refrigerated", "ambient"]
-
+SetpointSource = Literal["stated", "customer_default"]
+# Matches ColdLade's config/usp.json piece_units.
+PieceUnit = Literal["CRATE", "CASE", "BAG", "CARTON", "BOX", "TOTE", "DRUM", "PAIL", "BUNDLE", "PIECE"]
 # Flags are internal notes for the order desk, not questions for the customer.
 # What each one MEANS is written in the `flags` field's description below, not in
 # comments here: the model reads descriptions (they go out in the JSON schema)
@@ -176,17 +180,33 @@ class Response(BaseModel):
         description="Warmest allowed temperature in °F, as stated; the company standard is "
                     "frozen 0, refrigerated 38. Empty for ambient.",
     )
-
+    setpoint_f: float | None = Field(
+        default=None,
+        description="The single temperature the customer gives for the trailer, e.g. 'frozen -10' -> -10, "
+                    "'chilled @ 32' -> 32. A carrier/BOL instruction, separate from the range. "
+                    "Empty when the order gives only a range, or no number.",
+    )
+    setpoint_source: SetpointSource | None = Field(
+        default=None,
+        description="Where setpoint_f came from: 'stated' in the order. Empty when setpoint_f is empty.",
+    )
+    precool: bool | None = Field(
+        default=None,
+        description="True when the order asks for a precooled trailer. Empty when not mentioned.",
+    )
     # --- Freight --------------------------------------------------------------
     pallets: int | None = Field(default=None, description="Whole pallets. Every real order so far has been whole numbers.")
-    cases: int | None = Field(default=None, description="Total case (box or carton) count, a whole number.")
-    # Bags are their own field: flexible sacks handle and classify differently from
-    # rigid cases, so a bag count must never land in `cases`. A stopgap until more
-    # packaging types show up (then: a piece count plus a packaging type).
-    bags: int | None = Field(
+    pallet_spots: int | None = Field(
         default=None,
-        description="Total bag (sack) count, a whole number, when the order counts in bags. "
-                    "Bags are not cases: never put a bag count in cases.",
+        description="Floor positions on the trailer, only when the order states them separately from the "
+                    "pallet count (e.g. '60 PALLETS 30 SPOTS' when double-stacked). Null otherwise; the "
+                    "TMS then uses pallets.",
+    )
+    pieces: int | None = Field(default=None, description="Total piece count below the pallet level, a whole number.")
+    piece_unit: PieceUnit | None = Field(
+        default=None,
+        description="What the pieces are, as stated: 'cs'/'cases' -> CASE, 'bags'/'sacks' -> BAG. "
+                    "Bags are never cases. Empty when pieces is empty.",
     )
     weight_lb: float | None = Field(default=None, description="Total weight in pounds; the gross weight when both gross and net are given.")
 
@@ -276,13 +296,14 @@ Rules:
 - Use only what the order text says (body, subject line, attachments). Never fill a value
   from what a customer usually does, and never invent one. Empty (null) beats a guess.
 - Required fields: refs, origin, destination, ready_date or pickup_date, temperature (temp_mode),
-  pallets, a count (cases, or bags), weight_lb. When one is missing or only partly given, leave the missing part empty and
-  add a question for the customer with field set to that field's name. Examples: no case count
-  -> field "cases"; origin named only as a facility with no street address -> field "origin";
+  pallets, a piece count (pieces), weight_lb. When one is missing or only partly given, leave the missing part empty and
+  add a question for the customer with field set to that field's name. Examples: no piece count
+  -> field "pieces"; origin named only as a facility with no street address -> field "origin";
   no consignee name -> field "destination"; no temperature at all -> field "temp_mode".
-- Counts: cases are rigid boxes or cartons; bags (sacks) are not cases. A count given in bags goes
-  in bags with cases empty, and needs no question. Ask for a case count only when the order gives
-  neither.
+- Counts: pieces is the count below the pallet level, with piece_unit saying what they are
+  (cases, bags, cartons...). Bags are never cases. Ask for a count (field "pieces") only when the order gives none.
+- Pallet spots: when the order gives floor positions separately from pallets (e.g. "60 PALLETS 30 SPOTS",
+  "25 spots total"), put the pallet count in pallets and the spots in pallet_spots. Never put spots in pallets.
 - refs: every PO, SO and freight PO number in the order, as written, without labels.
 - Dates are YYYY-MM-DD. Resolve relative dates ("Friday") from received_date.
 - Pickup: a date the customer gives for when freight is ready, or a pickup date they request, is
@@ -297,7 +318,10 @@ Rules:
   and add flag DELIVERY_TO_BE_SCHEDULED. No delivery date at all: leave both empty and add
   DELIVERY_TO_BE_SCHEDULED. Never ask the customer about delivery.
 - Temperature is a range. Frozen with "-10" (or "set reefer at -10") is temp_min_f -10,
-  temp_max_f 0. A range the order states is used as stated. "REFER" or "reefer" with no other
+  temp_max_f 0. A range the order states is used as stated. 
+  A single number the customer gives ("frozen -10", "chilled @ 32") is also setpoint_f, with
+  setpoint_source "stated"; when no number is given, setpoint_f stays empty. If the order asks
+  for a precooled trailer, precool is true. "REFER" or "reefer" with no other
   temperature word means refrigerated; "REFER (FROZEN)" means frozen. "Dry", "dry van",
   "ambient" or "no temp needed" is temp_mode ambient with both temperatures empty (an order
   that simply never mentions temperature is NOT ambient: ask). If the order says frozen or refrigerated but
@@ -313,7 +337,7 @@ Rules:
   rate_usd empty. If the thread states no rate at all, leave both empty and add flag
   RATE_LOOKUP_NEEDED. Never ask the customer for a rate.
 - Corrections: email threads usually show the newest message first, so go by each message's
-  date, not its position. When a later message changes a value (pallets, cases, weight, a date,
+  date, not its position. When a later message changes a value (pallets, pieces, weight, a date,
   a location, the temperature), use the latest value and add an entry to changes with the field
   name, the earlier value as written (was) and the latest (now). If pallets or weight changed
   AFTER a rate was given, that rate is stale: leave rate_usd and quoted_rate_usd empty and add
