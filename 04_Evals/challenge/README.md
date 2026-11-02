@@ -734,3 +734,40 @@ challenge, which carries the full detail.
 
 Everything after this week assumes your app has a number, an interval, and a
 saved run to be measured against.
+
+---
+
+## Submission
+
+- **Loom (≤5 min):** 
+- **Branch:** `tc4`. Production data stays local (gitignored); goldens are redacted real orders.
+
+| Deliverable | Where | In one line |
+| --- | --- | --- |
+| Failure taxonomy, 20 hand scores (Step 1) | [failures.md](../../use_case/evals/failures.md) · [human_scores.jsonl](../../use_case/evals/human_scores.jsonl) | 18 of 50 real orders failed; temperature is the largest group (7 of 18) |
+| Model-free scorers, echo / oracle (Step 2) | [harness.py](../../use_case/evals/harness.py) · [run.py](../../use_case/evals/run.py) · [below](#step-2) | Endpoint misses only the chilled-beef golden; most goldens are easy cases, so the 1.00s aren’t evidence yet. Real failure traces are next. |
+| Judge (Step 3) | | |
+| Generated failures (Step 4) | | |
+| Scenarios (Step 5) | | |
+| Baseline, interval, compare() PASS (Step 6) | | |
+| Demo rehearsal (Step 7) | | |
+| Bring it to work (Step 8) | [below](#bring-it-to-work) | |
+
+## Step 2
+
+Three scorers, each tracing to a line in `failures.md`. `python use_case/evals/run.py`, 13 goldens, one endpoint run on `anthropic/claude-opus-5-5`.
+
+| System | temperature | silent_gaps | needs_human | errors |
+| --- | --- | --- | --- | --- |
+| echo | 0.00 | 0.00 | 0.00 | 0 |
+| oracle | 1.00 | 1.00 | 1.00 | 0 |
+| empty | 0.08 | 0.08 | 0.00 | 0 |
+| endpoint | 0.92 | 1.00 | 1.00 | 0 |
+
+- **temperature** (failures #1, #3): `temp_mode`, `temp_min_f`, `temp_max_f`, `setpoint_f` all equal the golden; all or nothing.
+- **silent_gaps** (failure #2): every blank required field has a customer question for it. One golden (two shipments in one email) passes by rule.
+- **needs_human** (failure #5): exact match. Chance floor 0.69 (9 of 13 goldens are false).
+- **empty** (`{}`) is a third baseline: valid JSON that's wrong. It caught a first version of the temperature scorer that passed everything.
+- **The one endpoint miss** is the chilled-beef golden (setpoint at the freezing point); the prompt has no rule for it yet.
+
+## Bring it to work
