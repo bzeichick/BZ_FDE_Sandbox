@@ -46,8 +46,8 @@ def no_silent_gaps(actual: str, case: dict) -> float:
     got = _parse(actual)
     if got is None:                       # not JSON: a failed answer, never a pass
         return 0.0
-    # Multi-shipment goldens (line 11) leave per-load fields blank on purpose, because one Response can’t hold two loads. One automatic pass; split into one golden per load when the contract supports several shipments.
-    if case.get("multi_shipment"):
+    # Not one order goldens emails whose right answer isn’t one new order to enter, because their blanks are deliberate, since there’s no single order to complete.
+    if case.get("not_one_order"):
         return 1.0
     asked = {q.get("field") for q in (got.get("questions") or [])}
     for field in ["refs", "temp_mode", "pallets", "pieces", "weight_lb"]:
@@ -68,7 +68,7 @@ def needs_human_match(actual: str, case: dict) -> float:
     got = _parse(actual)
     if got is None:                       # not JSON: a failed answer, never a pass
         return 0.0
-    want = case["output"]                 # the golden answer
+    want = case["output"]                 # the golden
     return 1.0 if got.get("needs_human") == want.get("needs_human") else 0.0
 
 SCORERS = {
