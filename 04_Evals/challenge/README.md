@@ -746,7 +746,7 @@ saved run to be measured against.
 | --- | --- | --- |
 | Failure taxonomy, 20 hand scores (Step 1) | [failures.md](../../use_case/evals/failures.md) · [human_scores.jsonl](../../use_case/evals/human_scores.jsonl) | 18 of 50 real orders failed; temperature is the largest group (7 of 18) |
 | Model-free scorers, echo / oracle (Step 2) | [harness.py](../../use_case/evals/harness.py) · [run.py](../../use_case/evals/run.py) · [below](#step-2) | 19 goldens (6 from real failures): the endpoint fails all 6 real-failure cases, most often on escalation; it let 3 of 7 orders that needed a person through as normal drafts. |
-| Judge (Step 3) | | |
+| Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge (failure #4): separation 1.00; agreement to come |
 | Generated failures (Step 4) | | |
 | Scenarios (Step 5) | | |
 | Baseline, interval, compare() PASS (Step 6) | | |
@@ -769,5 +769,11 @@ Three scorers, each tracing to a line in `failures.md`. `python use_case/evals/r
 - **needs_human** (failure #5): exact match. Chance floor 0.63 (12 of 19 goldens are false). The endpoint escalated 4 of the 7 that needed a person and wrongly escalated 1 of 12.
 - **empty** (`{}`) is a third baseline: valid JSON that's wrong. It caught a first version of the temperature scorer that passed everything.
 - **The one endpoint miss** Endpoint misses: all 6 real-failure goldens (1 temperature, 1 silent gap, 4 escalation), plus chilled beef’s temperature. Two old failures (trace 23’s temperature, trace 38’s minimum temperature) passed this run; one run, so not yet called fixed.
+
+## Step 3
+
+**Update judge (failure #4), `openai/gpt-6.1-sol`:** oracle 1.00; answer-42 0.00, echo 0.00, empty 0.00, on 19 goldens. Separation 1.00.
+A first rubric scored `{}` at 0.89, because a non-update "matched" anything that didn't say update. Fixed by defining what a draft is.
+In the full run the judge caught both update goldens the endpoint drafted as new orders (lines 15, 17), with no false alarms.
 
 ## Bring it to work

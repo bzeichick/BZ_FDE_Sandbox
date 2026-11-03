@@ -1,7 +1,8 @@
 """python use_case/evals/run.py: the whole interface. Scores the order endpoint against the goldens.
 
   uv run python use_case/evals/run.py --baselines-only   # echo/oracle/empty only, no model calls
-  uv run python use_case/evals/run.py                    # also the real endpoint (13 model calls)
+  uv run python use_case/evals/run.py                    # also the real endpoint (one model call per golden)
+  uv run python use_case/evals/run.py --judge            # plus the update judge column (calibrates first)
 """
 import argparse
 import json
@@ -36,22 +37,44 @@ SYSTEMS = {
 }
 
 
+def make_update_judge():
+    """The update judge as a harness scorer. Calibrates first: helpers.judge refuses to score until it passes."""
+    from helpers.config import from_env
+    from helpers.judge import Judge
+    from helpers.llm import CallStats
+    from harness import UPDATE_RUBRIC
+    from judge_check import JUDGE_MODEL, judge_case
+
+    stats = CallStats()
+    judge = Judge(from_env(ROOT), rubric=UPDATE_RUBRIC, model=JUDGE_MODEL, stats=stats)
+    print(f"calibrating update judge ({JUDGE_MODEL}) on {len(CASES)} goldens...", flush=True)
+    print(" ", judge.calibrate([judge_case(c) for c in CASES]))      # raises later in score() if this failed
+    return (lambda actual, case: judge.score(actual, judge_case(case))), stats
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--baselines-only", action="store_true", help="skip the real endpoint (no model calls)")
+    parser.add_argument("--judge", action="store_true",
+                        help="add the update judge (failure #4) as a column; calibrates it first (judge model calls)")
     args = parser.parse_args()
 
     systems = dict(SYSTEMS)
     if not args.baselines_only:
         systems["endpoint"] = endpoint
 
+    scorers = dict(SCORERS)
+    stats = None
+    if args.judge:
+        scorers["update_judge"], stats = make_update_judge()
+
     reports = {}
     for name, system in systems.items():
         print(f"running {name} on {len(CASES)} cases...", flush=True)
-        reports[name] = hh.run(CASES, system, SCORERS, name=name)
+        reports[name] = hh.run(CASES, system, scorers, name=name)
 
     # The Step 2 table, ready to paste into the README.
-    labels = list(SCORERS)
+    labels = list(scorers)
     print("\n| System | " + " | ".join(labels) + " | errors |")
     print("| --- | " + " | ".join("---" for _ in labels) + " | --- |")
     for name, r in reports.items():
@@ -63,6 +86,9 @@ def main() -> None:
             failed = [l for l, s in res.scores.items() if s < 1]
             if failed or res.error:
                 print(f"  line {res.index + 1}: {', '.join(failed)}" + (f"  ERROR: {res.error.splitlines()[-1]}" if res.error else ""))
+
+    if stats is not None:
+        print(f"\nJudge calls this run (measured): {stats}")
 
 
 if __name__ == "__main__":
