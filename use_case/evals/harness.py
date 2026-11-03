@@ -76,3 +76,52 @@ SCORERS = {
     "silent_gaps": no_silent_gaps,
     "needs_human": needs_human_match,
 }
+
+UPDATE_RUBRIC = """You are checking one draft that was produced from one customer email.
+
+Question: Did the draft correctly decide whether this email is an update to an existing order?
+
+You can only see the email and the draft, not the TMS. Decide from what the email itself says.
+
+Email:
+{input}
+
+Draft:
+{actual}
+
+What counts as an update. An email is an update when it asks to change an order that already exists: one the customer says was sent, booked or scheduled before this email. Both of these must be true:
+1. It asks for a change: wording like "updated", "revised", "please change", "instead of", or a new quantity, date or PO number for something already ordered.
+2. It points to a specific existing order: a PO or SO number, a reference like "the order I sent Monday", or "the attached PO going to [consignee] this week".
+
+What does not count as an update:
+- A repeat order: a regular customer asking to ship a similar amount of the same product, with no specific earlier order named and no request to change one. That is a new order, even if it looks familiar.
+- A change inside this same thread before booking: the customer answers a question or corrects a detail in a reply ("make it 6 pallets instead of 5"). That is still one new order being completed, and the draft records it under `changes`.
+
+How a draft says "update". The draft has no update field. It says the email is an update only when
+needs_human is true AND needs_human_reason says the email changes an order that already exists
+(for example "the PO on an existing load was updated" or "customer is revising an existing order").
+A draft escalated for any other reason (two shipments in one email, a tender, a missing address,
+a load already picked up) is NOT calling it an update.
+
+A status report about a load ("picked up", "delivered", "on the way") is not an update, even if it
+uses the word "update": it doesn't ask to change anything.
+
+Scoring:
+- Score 1 if the draft's decision matches the email: the draft calls it an update and the email is
+  one, or the draft does not call it an update and the email is not one, whatever else the draft
+  escalates for.
+- Score 0 if the decision is wrong in either direction, or if the text is not a draft at all.
+  A draft must contain a needs_human field set to true or false. Empty JSON ({{}}), an email,
+  or any text without needs_human is not a draft: score 0, even when the email is not an update.
+- Judge only this decision. Ignore errors in other fields.
+
+Example of a 1:
+Email: "Please change PO 4471 going to Fresh Valley Thursday to 8 pallets instead of 6."
+Draft: needs_human true, needs_human_reason "Customer is changing existing PO 4471 to 8 pallets."
+
+Example of a 0:
+Email: "Same as usual, 10 pallets of romaine to the Fresno DC next week."
+Draft: needs_human true, needs_human_reason "Update to an existing order."
+No earlier order is named and nothing is asked to change, so this is a repeat order, not an update.
+
+Reply with JSON only: {{"score": 0 or 1, "why": "<one sentence>"}}"""

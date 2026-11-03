@@ -746,7 +746,7 @@ saved run to be measured against.
 | --- | --- | --- |
 | Failure taxonomy, 20 hand scores (Step 1) | [failures.md](../../use_case/evals/failures.md) · [human_scores.jsonl](../../use_case/evals/human_scores.jsonl) | 18 of 50 real orders failed; temperature is the largest group (7 of 18) |
 | Model-free scorers, echo / oracle (Step 2) | [harness.py](../../use_case/evals/harness.py) · [run.py](../../use_case/evals/run.py) · [below](#step-2) | 19 goldens (6 from real failures): the endpoint fails all 6 real-failure cases, most often on escalation; it let 3 of 7 orders that needed a person through as normal drafts. |
-| Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge (failure #4): separation 1.00; agreement to come |
+| Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge (failure #4): separation 1.00 / agreement 1.00 on 20 |
 | Generated failures (Step 4) | | |
 | Scenarios (Step 5) | | |
 | Baseline, interval, compare() PASS (Step 6) | | |
@@ -775,5 +775,11 @@ Three scorers, each tracing to a line in `failures.md`. `python use_case/evals/r
 **Update judge (failure #4), `openai/gpt-6.1-sol`:** oracle 1.00; answer-42 0.00, echo 0.00, empty 0.00, on 19 goldens. Separation 1.00.
 A first rubric scored `{}` at 0.89, because a non-update "matched" anything that didn't say update. Fixed by defining what a draft is.
 In the full run the judge caught both update goldens the endpoint drafted as new orders (lines 15, 17), with no false alarms.
+
+**Agreement:** 20/20 = 1.00 on the 20 hand-scored traces, labelled for this one question (17 not updates, 3 updates);
+chance floor 0.85. It caught all 3 updates and neither "please update your contact email" lookalike.
+Limits: only 3 positive cases, and the rubric's definition came from 2 of them (traces 19 and 23).
+
+**Used:** separation 1.00 / agreement 1.00 on 20, so used as the `update_judge` column. Not the headline: too few positives.
 
 ## Bring it to work
