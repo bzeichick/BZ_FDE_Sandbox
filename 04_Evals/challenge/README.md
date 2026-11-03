@@ -750,6 +750,7 @@ saved run to be measured against.
 | Generated failures (Step 4) | [synthetic.jsonl](../../use_case/evals/synthetic.jsonl) · [detect_synthetic.py](../../use_case/evals/detect_synthetic.py) · [below](#step-4) | 106 generated vs 18 natural; each scorer 100% on its own mode; blind spot: counts (N1 0/18). |
 | Scenarios (Step 5) | [scenarios.py](../../use_case/evals/scenarios.py) · [run_scenarios.py](../../use_case/evals/run_scenarios.py) · [below](#step-5) | must do / must ask pass^3 1.00; must refuse pass^3 0.00 (update never escalated on the email as sent); the model user leaked the answer |
 | Baseline, interval, compare() PASS (Step 6) | [baseline.json](../../use_case/evals/baseline.json) · [decisions.md](../../use_case/decisions.md) · [below](#step-6) | temperature 0.85 [0.70, 1.00] on 20; needs_human 0.75 [0.55, 0.90], interval includes its chance floor; compare() PASS |
+| Still runs in Docker | [Dockerfile](../../01_Product_Engineering/challenge/Dockerfile) | Builds from the lock and answers on the synthetic orders; the new fields (setpoint, precool, pieces) show in the draft; no production data in the image |
 | Demo rehearsal (Step 7) | | |
 | Bring it to work (Step 8) | [below](#bring-it-to-work) | |
 
