@@ -206,3 +206,13 @@ Corpus and labels: production (not committed); names below are the redacted ones
 - For Week 4: when one detail of a question matches nothing, search on the others before declining
   (u03); every dollar figure says whose rate it is; tell "ran out of turns" apart from "may be
   incomplete", since 5 of the 7 turn-limit answers were correct.
+
+  ## Week 4 re-measure (2026-11-02), carry-overs from TC3
+- Same frozen corpus as TC3 (embeddings rebuilt: 9,526,378 tokens for 36,973 records, identical to 10/26) and the same
+  model (Sonnet), so differences are the two new rules. Embeddings are per corpus: frozen and live differ by 1,262
+  records, so one file can't serve both.
+- Rule 1 (search a load's other reference numbers): the I-SO050414 regression (q02b) now passes on all four techniques.
+  Wiki 10/11 (new miss: q10, a Richmond lookalike after 18 calls). Cost up: 151K tokens / 52 s per question (TC3: 105K / 33 s).
+- Rule 2 (say whose rate): dollar figures now say carrier cost vs customer rate (u01, u07). u09 flags that the record
+  is unclear, then guesses anyway; the rule says don't guess.
+- User sessions: 8/10, the same as TC3 (u06 now passes, u08 now fails). 8 of 10 hit the 12-turn limit.

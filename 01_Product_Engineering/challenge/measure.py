@@ -7,6 +7,7 @@ Needs COLDLADE_DB set: the labels point at production records, so they can only 
 
 Reads:  use_case/data/retrieval.real.jsonl       (production labels; gitignored)
 Writes: 03_Retrieval/challenge/results.md         (numbers and question IDs only, safe to commit)
+        ..._partial.md instead, when run with --only or --q (a partial run never replaces the full results)
         use_case/data/runs/<time>.jsonl           (every answer and trace, for reading; gitignored)
 
 Scoring follows Session 5: pass = the reviewed terms are in the answer; cited = every gold
@@ -192,6 +193,9 @@ def main() -> None:
                 log.write(json.dumps({**row, "question": label["question"], "answer": answer,
                                       "trace": run["trace"]}) + "\n")
     out = USER_RESULTS if args.live else RESULTS
+    if args.only or args.q:
+        # A partial run never replaces the published results: those are the full comparison.
+        out = out.with_name(out.stem + "_partial.md")
     write_results(rows, out)
     print(f"\nwrote {out.relative_to(REPO)}  and every trace to {run_log.relative_to(REPO)}")
 
