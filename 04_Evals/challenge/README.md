@@ -739,7 +739,7 @@ saved run to be measured against.
 
 ## Submission
 
-- **Loom (≤5 min):** 
+- **Loom (≤5 min):** [TC4 demo](https://www.loom.com/share/e5edeb0c04c547dd932a133a619e7ea4)
 - **Branch:** `tc4`. Production data stays local (gitignored); goldens are redacted real orders.
 
 | Deliverable | Where | In one line |
@@ -912,6 +912,11 @@ Rehearsed with sales at the freight brokerage, answers confirmed with the co-own
 **What changed:** the headline moved from `temperature` to `needs_human`. A duplicate load costs more than a wrong
 temperature caught before pickup. The rehearsal also added six failure lines to
 [`failures.md`](../../use_case/evals/failures.md#found-in-the-rehearsal-not-by-any-scorer) that no scorer caught.
+
+**The three questions:**
+1. *What would you do differently on Monday if this number is right?* Wouldn't let it enter anything yet; run it alongside the order desk to flag mismatches. The thread change log is useful right away.
+2. *What would it take to convince you it's wrong?* Last week's real loads against what the desk entered in the TMS, messy ones included. "Wrong" includes the wrong temperature range for the commodity.
+3. *What did you expect to see that you didn't?* Bill-to, replies owed to the customer, the requested pickup date, every reference number, time saved and monthly cost, entry into the TMS without retyping.
 
 **The demo, timed** (three redacted orders: a thread correction, chilled @ 32, a PO update):
 
