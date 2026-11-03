@@ -1,0 +1,219 @@
+{
+  "name": "elaborate prompt",
+  "fingerprint": "9518b26362cbc9d0",
+  "n": 12,
+  "means": {
+    "exact": 0.0,
+    "f1": 0.642153156988922,
+    "required": 1.0,
+    "declines": 1.0,
+    "needs_human": 0.0,
+    "correctness (GEval)": 0.31666666666666665
+  },
+  "errors": 0,
+  "seconds": 149.30129062524065,
+  "meta": {
+    "scorers": [
+      "correctness (GEval)",
+      "declines",
+      "exact",
+      "f1",
+      "needs_human",
+      "required"
+    ]
+  },
+  "results": [
+    {
+      "index": 0,
+      "input": "{'order_text': \"From: Maria Ortiz <maria@coastlinecold.example>\\nSent: Monday, October 19, 2026 3:06 PM\\nTo: 'Ray Lopez' <ray@sunridgefoods.example>; Dan Ellis <Dan@coastlinecold.example>; Sam Mercer\\n<sam@coastlinecold.example>\\nCc: Dispatch Desk <Dispatch@coastlinecold.example>\\nSubject: RE: Need PO Ref# Sunridge Foods New Modesto PO\\n\\nHi Ray,\\n\\nWe have this PO entered in our system.\\nTeam will be working with the routing schedules and will advise you by then.\\n\\nThank you for this opportunity!\\n\\n Maria Ortiz\\n\\n 100 Harbor Way Suite 1 • Concord, CA 94520\\n      510-555-0141\\n      925-555-0102\\n      maria@coastlinecold.example\\n\\nFrom: Ray Lopez <ray@sunridgefoods.example>\\nSent: Monday, October 19, 2026 2:32 PM\\nTo: Maria Ortiz <maria@coastlinecold.example>; Dan Ellis <Dan@coastlinecold.example>; Sam\\nMercer <sam@coastlinecold.example>\\nCc: Dispatch Desk <Dispatch@coastlinecold.example>\\nSubject: Re: Need PO Ref# Sunridge Foods New Modesto PO\\n\\nPO# S61427\\n\\nRay Lopez\\nS&R, Logistics Manager\\nSunridge Foods\\n2200 Industrial Parkway, Ontario, CA 91761\\nCell: 951-555-0177\\nOffice: 949-555-0110\\n\\nFrom: Maria Ortiz <maria@coastlinecold.example>\\nSent: Monday, October 19, 2026 2:29 PM\\nTo: Ray Lopez <ray@sunridgefoods.example>; Dan Ellis <Dan@coastlinecold.example>; Sam Mercer\\n<sam@coastlinecold.example>\\nCc: Dispatch Desk <Dispatch@coastlinecold.example>\\nSubject: Need PO Ref# Sunridge Foods New Modesto PO\\n\\nHi Ray,\\n\\nCan I get PO number for this order?\\n\\nThank you.\\n\\n Maria Ortiz\\n\\n 100 Harbor Way Suite 1 • Concord, CA 94520\\n\\n      510-555-0141\\n      925-555-0102\\n      maria@coastlinecold.example\\n\\nFrom: Ray Lopez <ray@sunridgefoods.example>\\nSent: Monday, October 19, 2026 1:56 PM\\nTo: Dan Ellis <Dan@coastlinecold.example>; Sam Mercer <sam@coastlinecold.example>; Maria Ortiz\\n<maria@coastlinecold.example>\\n\\nCc: Dispatch Desk <Dispatch@coastlinecold.example>\\nSubject: Sunridge Foods New Modesto PO\\n\\nHello, please add to your schedule what's the ea",
+      "expected": "{'refs': ['S61427'], 'origin': {'company': 'Sunridge Foods', 'street': '2200 Industrial Pkwy', 'city': 'Ontario', 'state': 'CA', 'zip': '91761'}, 'destination': {'company': 'Valley Food Distributors', 'street': '450 Airport Way', 'city': 'Modesto', 'state': 'CA', 'zip': '95354'}, 'ready_date': '2026-10-23', 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': 4, 'pieces': 360, 'piece_unit': 'CASE', 'weight_lb': 7200.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED', 'DELIVERY_TO_BE_SCHEDULED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "actual": "{'refs': ['S61427'], 'origin': {'company': 'Sunridge Foods', 'street': '2200 Industrial Pkwy', 'city': 'Ontario', 'state': 'CA', 'zip': '91761'}, 'destination': {'company': 'Valley Food Distributors', 'street': '450 Airport Way', 'city': 'Modesto', 'state': 'CA', 'zip': '95354'}, 'ready_date': None, 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': 'FROZEN', 'temp_min_f': -10.0, 'temp_max_f': -10.0, 'setpoint_f': -10.0, 'setpoint_source': 'shipper_stated', 'precool': None, 'pallets': 4, 'pieces': 360, 'piece_unit': 'CASE', 'weight_lb': 7200.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [{'field': 'pickup_date', 'question': 'Ray mentioned pickup could be as early as Friday (Oct 23) for PO S61427 - can you confirm the exact pickup date/ready date?'}], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED', 'PICKUP_TO_BE_SCHEDULED', 'DELIVERY_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.875,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.3
+      },
+      "error": null,
+      "seconds": 4.466915541794151
+    },
+    {
+      "index": 1,
+      "input": "{'order_text': 'From: Maria Ortiz <maria@coastlinecold.example>\\nSent: Tuesday, October 20, 2026 9:01 AM\\nTo: Ray Lopez <ray@sunridgefoods.example>; Dan Ellis <Dan@coastlinecold.example>; Sam Mercer\\n<sam@coastlinecold.example>\\nCc: Dispatch Desk <Dispatch@coastlinecold.example>; Order Entry <Orders@coastlinecold.example>\\nSubject: RE: Sunridge Foods Northstar Co-Pack TX P/U\\n\\nGood morning Ray,\\n\\nThis order has been received and entered in our system.\\n\\nThank you for this opportunity!\\n\\n Maria Ortiz\\n\\n 100 Harbor Way Suite 1 • Concord, CA 94520\\n      510-555-0141\\n      925-555-0102\\n      maria@coastlinecold.example\\n\\nFrom: Ray Lopez <ray@sunridgefoods.example>\\nSent: Monday, October 19, 2026 4:10 PM\\nTo: Order Entry <Orders@coastlinecold.example>; Dan Ellis <Dan@coastlinecold.example>; Sam Mercer\\n<sam@coastlinecold.example>; Maria Ortiz <maria@coastlinecold.example>\\nCc: Dispatch Desk <Dispatch@coastlinecold.example>\\nSubject: Sunridge Foods Northstar Co-Pack TX P/U\\n\\nHello, please go ahead and add to your schedule.\\n\\nOrigin: Sunridge Foods\\n2200 Industrial Pkwy\\nOntario, CA 91761\\nDestination: Northstar Co-Pack TX\\n800 Commerce Blvd\\nMesquite, TX 75149\\nPO# 512908 - 5 Pallets - 9,400 lbs - 412 Cases\\n\\nThank you,\\n\\nRay Lopez\\nS&R, Logistics Manager\\nSunridge Foods\\n2200 Industrial Parkway, Ontario, CA 91761\\nCell: 951-555-0177\\nOffice: 949-555-0110\\n', 'received_date': '2026-10-19'}",
+      "expected": "{'refs': ['512908'], 'origin': {'company': 'Sunridge Foods', 'street': '2200 Industrial Pkwy', 'city': 'Ontario', 'state': 'CA', 'zip': '91761'}, 'destination': {'company': 'Northstar Co-Pack TX', 'street': '800 Commerce Blvd', 'city': 'Mesquite', 'state': 'TX', 'zip': '75149'}, 'ready_date': None, 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': None, 'temp_min_f': None, 'temp_max_f': None, 'setpoint_f': None, 'setpoint_source': None, 'precool': None, 'pallets': 5, 'pieces': 412, 'piece_unit': 'CASE', 'weight_lb': 9400.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [{'field': 'ready_date', 'question': 'When will PO 512908 be ready for pickup in Ontario?'}, {'field': 'temp_mode', 'question': 'Should PO 512908 ship frozen or refrigerated, and at what temperature?'}], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED', 'DELIVERY_TO_BE_SCHEDULED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "actual": "{'refs': ['512908'], 'origin': {'company': 'Sunridge Foods', 'street': '2200 Industrial Pkwy', 'city': 'Ontario', 'state': 'CA', 'zip': '91761'}, 'destination': {'company': 'Northstar Co-Pack TX', 'street': '800 Commerce Blvd', 'city': 'Mesquite', 'state': 'TX', 'zip': '75149'}, 'ready_date': None, 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': None, 'temp_min_f': None, 'temp_max_f': None, 'setpoint_f': None, 'setpoint_source': None, 'precool': None, 'pallets': 5, 'pieces': 412, 'piece_unit': 'CASE', 'weight_lb': 9400.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED', 'PICKUP_TO_BE_SCHEDULED', 'DELIVERY_TO_BE_SCHEDULED', 'TEMPERATURE_NOT_STATED'], 'needs_human': True, 'needs_human_reason': \"Temperature/setpoint is not stated anywhere in this thread (unlike the prior Sunridge order which specified Frozen -10). Need to confirm with Ray Lopez or check product/customer history before dispatching, since this load's temp requirement is unknown.\"}",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.7681159420289856,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.3
+      },
+      "error": null,
+      "seconds": 4.695965750142932
+    },
+    {
+      "index": 2,
+      "input": "{'order_text': 'From: Ben Park <ben.park@seoulpantry.example>\\nTo: Miguel Vance <miguel.vance@coastlinecold.example>\\nDate: Fri, 23 Oct 2026 10:00:00 +0000\\nSubject: [FROZEN LTL] TEST-C8 / PO# SYNC8PO1 / SO# SYNC8SO1 / COMMERCE,CA - SCHAUMBURG,IL 60173\\n\\nDear Miguel,\\n\\nPlease send quote for below.\\n\\nPO# SYNC8PO1\\nCommodity: Frozen Vegetable Dumplings / Frozen Rice Cakes\\n2 Pallet ~ 3,980 lbs\\nREFER (FROZEN)\\n\\nPick up: ColdVault\\nRequested pick up date: 10/28/26 or 10/29/26\\n\\nDeliver to: 300 E. Lake Dr., Schaumburg, IL 60173\\nDelivery Date: Before or on 11/4/26\\n\\nThank you\\nBen\\n', 'received_date': '2026-10-23'}",
+      "expected": "{'refs': ['SYNC8PO1', 'SYNC8SO1'], 'origin': {'company': 'ColdVault', 'street': None, 'city': 'Commerce', 'state': 'CA', 'zip': None}, 'destination': {'company': None, 'street': '300 E. Lake Dr.', 'city': 'Schaumburg', 'state': 'IL', 'zip': '60173'}, 'ready_date': '2026-10-28', 'pickup_date': None, 'delivery_date': '2026-11-04', 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'customer_default', 'precool': None, 'pallets': 2, 'pieces': None, 'piece_unit': None, 'weight_lb': 3980.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [{'field': 'origin', 'question': \"What's the street address for the ColdVault pickup in Commerce?\"}, {'field': 'destination', 'question': \"What's the consignee name at 300 E. Lake Dr., Schaumburg?\"}, {'field': 'pieces', 'question': 'How many cases are on PO SYNC8PO1?'}], 'confirmations': [{'field': 'temp_mode', 'statement': \"We'll run PO SYNC8PO1 frozen at -10°F to 0°F. Let us know if that's not right.\"}], 'flags': ['TEMP_STANDARD_ASSUMED', 'RATE_LOOKUP_NEEDED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "actual": "{'refs': ['SYNC8PO1', 'SYNC8SO1'], 'origin': {'company': 'ColdVault', 'street': None, 'city': 'Commerce', 'state': 'CA', 'zip': None}, 'destination': {'company': None, 'street': '300 E. Lake Dr.', 'city': 'Schaumburg', 'state': 'IL', 'zip': '60173'}, 'ready_date': '2026-10-28', 'pickup_date': None, 'delivery_date': None, 'delivery_window': {'start': None, 'end': '2026-11-04'}, 'temp_mode': 'frozen', 'temp_min_f': None, 'temp_max_f': None, 'setpoint_f': None, 'setpoint_source': None, 'precool': None, 'pallets': 2, 'pieces': None, 'piece_unit': None, 'weight_lb': 3980.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': ['Requested pickup date is 10/28/26 or 10/29/26 - need to confirm which date to book.', 'No street address given for origin (ColdVault, Commerce, CA) - need full pickup address.', 'No setpoint temperature specified beyond \"FROZEN\" - need confirmed temp setting.'], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED', 'QUOTE_REQUEST_ONLY', 'PICKUP_DATE_AMBIGUOUS', 'ORIGIN_ADDRESS_INCOMPLETE', 'SETPOINT_NOT_STATED'], 'needs_human': True, 'needs_human_reason': 'This is a quote request (not a confirmed order) with an ambiguous pickup date (10/28 or 10/29) and an incomplete origin address (no street number for ColdVault, Commerce, CA) - need clarification from Ben Park before booking/quoting.'}",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.5938375350140055,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.1
+      },
+      "error": null,
+      "seconds": 6.059709249995649
+    },
+    {
+      "index": 3,
+      "input": "{'order_text': 'From: Ben Park <ben.park@seoulpantry.example>\\nTo: Miguel Vance <miguel.vance@coastlinecold.example>\\nDate: Fri, 23 Oct 2026 10:05:00 +0000\\nSubject: [FROZEN LTL] TEST-C9 / PO# SYNC9PO1 / SO# SYNC9SO1 / SCHAUMBURG,IL 60173\\n\\nDear Miguel,\\n\\nPlease send quote for below.\\n\\nPO# SYNC9PO1\\nCommodity: Frozen Vegetable Dumplings / Frozen Rice Cakes\\n2 Pallet ~ 3,980 lbs\\nREFER (FROZEN)\\n\\nRequested pick up date: 10/28/26 or 10/29/26\\n\\nDeliver to: 300 E. Lake Dr., Schaumburg, IL 60173\\nDelivery Date: Before or on 11/4/26\\n\\nThank you\\nBen\\n', 'received_date': '2026-10-23'}",
+      "expected": "{'refs': ['SYNC9PO1', 'SYNC9SO1'], 'origin': None, 'destination': {'company': None, 'street': '300 E. Lake Dr.', 'city': 'Schaumburg', 'state': 'IL', 'zip': '60173'}, 'ready_date': '2026-10-28', 'pickup_date': None, 'delivery_date': '2026-11-04', 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'customer_default', 'precool': None, 'pallets': 2, 'pieces': None, 'piece_unit': None, 'weight_lb': 3980.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [{'field': 'origin', 'question': 'Where should we pick up PO SYNC9PO1?'}, {'field': 'destination', 'question': \"What's the consignee name at 300 E. Lake Dr., Schaumburg?\"}, {'field': 'pieces', 'question': 'How many cases are on PO SYNC9PO1?'}], 'confirmations': [{'field': 'temp_mode', 'statement': \"We'll run PO SYNC9PO1 frozen at -10°F to 0°F. Let us know if that's not right.\"}], 'flags': ['TEMP_STANDARD_ASSUMED', 'RATE_LOOKUP_NEEDED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': True, 'needs_human_reason': \"The order doesn't name a pickup location.\"}",
+      "actual": "{'refs': ['SYNC9PO1', 'SYNC9SO1'], 'origin': None, 'destination': {'company': None, 'street': '300 E. Lake Dr.', 'city': 'Schaumburg', 'state': 'IL', 'zip': '60173'}, 'ready_date': '2026-10-28', 'pickup_date': None, 'delivery_date': None, 'delivery_window': {'start': None, 'end': '2026-11-04'}, 'temp_mode': 'frozen', 'temp_min_f': None, 'temp_max_f': None, 'setpoint_f': None, 'setpoint_source': None, 'precool': None, 'pallets': 2, 'pieces': None, 'piece_unit': None, 'weight_lb': 3980.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': ['Origin/pickup address not provided — needed to quote and schedule pickup.', 'Requested pickup is 10/28 or 10/29 — need confirmation of which date to use.', 'No setpoint temperature given, only \"REFER (FROZEN)\" — need specific temp requirement.'], 'confirmations': [], 'flags': ['ORIGIN_MISSING', 'RATE_LOOKUP_NEEDED', 'PICKUP_DATE_AMBIGUOUS', 'SETPOINT_NOT_STATED', 'QUOTE_REQUESTED_NOT_BOOKED'], 'needs_human': True, 'needs_human_reason': 'Origin/pickup address is missing and cannot be inferred, and this is a quote request (not yet a firm booking) with an ambiguous pickup date — needs sales/ops follow-up with the customer before this can be scheduled.'}",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.5756676557863502,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.3
+      },
+      "error": null,
+      "seconds": 5.679677166044712
+    },
+    {
+      "index": 4,
+      "input": "{'order_text': 'Dan Ellis <Dan@coastlinecold.example>                                                   Thu, Oct 29, 2026 at 3:56 PM\\nTo: Ray Lopez <ray@sunridgefoods.example>, Sam Mercer <sam@coastlinecold.example>, Maria Ortiz\\n<maria@coastlinecold.example>, Order Entry <Orders@coastlinecold.example>\\nCc: Dispatch Desk <Dispatch@coastlinecold.example>\\n\\n   Hi Ray, quoted rate for this on text is $1820. We picked up earlier this morning and due to deliver\\n   Tues 11/3 midday.\\n\\n   Thanks,\\n   Dan\\n\\n   From: Ray Lopez <ray@sunridgefoods.example>\\n   Sent: Wednesday, 28 October 2026 16:36:29\\n   To: Dan Ellis <Dan@coastlinecold.example>; Sam Mercer <sam@coastlinecold.example>; Maria Ortiz\\n   <maria@coastlinecold.example>; Order Entry <Orders@coastlinecold.example>\\n   Cc: Dispatch Desk <Dispatch@coastlinecold.example>\\n   Subject: Sunridge Foods Pickup MN\\n\\n   Origin: Northstar Co-Pack\\n   5100 River Rd S.\\n   Shakopee, MN 55379\\n   Phone: (800) 555-0199\\n   PO# 2004 - 3 Pallets - 240 Cases - 4,150 Lbs - FROZEN -10\\n\\n   Destination: Sunridge Foods\\n   2200 Industrial Pkwy\\n   Ontario, CA 91761\\n\\n   Ray Lopez\\n   S&R, Logistics Manager\\n   Sunridge Foods\\n   2200 Industrial Parkway, Ontario, CA 91761\\n   Cell: 951-555-0177\\n   Office: 949-555-0110\\n', 'received_date': '2026-10-29'}",
+      "expected": "{'refs': ['2004'], 'origin': {'company': 'Northstar Co-Pack', 'street': '5100 River Rd S.', 'city': 'Shakopee', 'state': 'MN', 'zip': '55379'}, 'destination': {'company': 'Sunridge Foods', 'street': '2200 Industrial Pkwy', 'city': 'Ontario', 'state': 'CA', 'zip': '91761'}, 'ready_date': None, 'pickup_date': '2026-10-29', 'delivery_date': '2026-11-03', 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': 3, 'pieces': 240, 'piece_unit': 'CASE', 'weight_lb': 4150.0, 'rate_usd': 1820.0, 'quoted_rate_usd': None, 'changes': [], 'questions': [], 'confirmations': [], 'flags': [], 'needs_human': True, 'needs_human_reason': \"Already picked up — this is a status update on a shipment in progress; check it's in the TMS before entering.\"}",
+      "actual": "**Decision/fact:** This is a pickup-confirmation/rate update for Sunridge Foods PO# 2004 — load was picked up the morning of Oct 29, 2026 at Northstar Co-Pack (Shakopee, MN) for delivery to Sunridge Foods (Ontario, CA) with an ETA of Tuesday, 11/3/2026 midday, at a quoted rate of $1,820 (given verbally/by text, not yet on a written rate confirmation).\n\nStructured data:\n{\n  \"refs\": [\"PO 2004\"],\n  \"origin\": {\"company\": \"Northstar Co-Pack\", \"street\": \"5100 River Rd S.\", \"city\": \"Shakopee\", \"state\": \"MN\", \"zip\": \"55379\"},\n  \"destination\": {\"company\": \"Sunridge Foods\", \"street\": \"2200 Industrial Pkwy\", \"city\": \"Ontario\", \"state\": \"CA\", \"zip\": \"91761\"},\n  \"ready_date\": null,\n  \"pickup_date\": \"2026-10-29\",\n  \"delivery_date\": \"2026-11-03\",\n  \"delivery_window\": \"midday\",\n  \"temp_mode\": \"frozen\",\n  \"temp_min_f\": -10.0,\n  \"temp_max_f\": 0.0,\n  \"setpoint_f\": -10.0,\n  \"setpoint_source\": \"stated\",\n  \"precool\": null,\n  \"pallets\": 3,\n  \"pieces\": 240,\n  \"piece_unit\": \"CASE\",\n  \"weight_lb\": 4150.0,\n  \"rate_usd\": null,\n  \"quoted_rate_usd\": 1820.0,\n  \"changes\": [],\n  \"questions\": [],\n  \"confirmations\": [\"Picked up morning of 10/29/2026\", \"Delivery due Tue 11/3 midday\"],\n  \"flags\": [\"RATE_CONFIRMATION_NEEDED_IN_WRITING\"],\n  \"needs_human\": false,\n  \"needs_human_reason\": null\n}\n\nNote: The $1,820 rate was only given verbally/by text (\"quoted rate ... on text\"), not on a formal rate confirmation — recommend getting written confirmation before invoicing. If a signed rate con already exists elsewhere, escalate to confirm the final rate_usd.",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.6109510086455331,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.2
+      },
+      "error": null,
+      "seconds": 11.86901016626507
+    },
+    {
+      "index": 5,
+      "input": "{'order_text': 'From: Alicia Lane <alicia@harborlanefoods.example>\\nSent: Tuesday, October 27, 2026 12:42 PM\\nTo: Order Entry <Orders@coastlinecold.example>\\nCc: Over The Road - OTR <OTR@harborlanefoods.example>\\nSubject: CCF PICK 10.30.26 .. LA DOCK TO SUFFOLK VA .. FREIGHT PO FQ-004213\\n\\nSam,\\nOrder requires driver assist. Driver attach pallet puller to 5 pallets for receiving to unload. How much?\\n\\nORDER          PO             Ship-to Contact                       Ship-to City      Ship-to State Number of Pallets Gross Plus Pallet Weight\\nSO-071358 884512HLF Tidewater County Schools Whse SUFFOLK VA                                        5.00                 7,940.00\\n--- Attachment 1: Purchase Order FQ-004213.pdf ---\\n\\nHarbor Lane Foods\\n                       50 Market St\\n                                                                                                             Purchase Order\\n                       Gardena, CA 90248                                                                                  Page: 1 / 1\\n                       USA\\n                                                                                               Purchase Order:                   FQ-004213\\n                                                                                               Version Number:                            1\\n                                                                                               Date:                     October 27, 2026\\n                                                                                               Vendor Number:                       003317\\n                                                                                               Vendor Phone:                  925-555-0102\\nTo:                                        FOB Point:                                          Bill To:\\nCOASTLINE COLD FREIGHT                              Harbor Lane Foods Distribution Center                   Harbor ",
+      "expected": "{'refs': ['FQ-004213', 'SO-071358', '884512HLF'], 'origin': {'company': 'Harbor Lane Foods Distribution Center', 'street': '1800 Alameda Way', 'city': 'Los Angeles', 'state': 'CA', 'zip': '90021'}, 'destination': {'company': 'Tidewater County Schools Whse', 'street': '900 Bridge Blvd.', 'city': 'Suffolk', 'state': 'VA', 'zip': '23434'}, 'ready_date': None, 'pickup_date': '2026-10-30', 'delivery_date': None, 'delivery_window': 'week of 11/2/26', 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': True, 'pallets': 5, 'pieces': 300, 'piece_unit': 'CASE', 'weight_lb': 7940.0, 'rate_usd': 2840.0, 'quoted_rate_usd': None, 'changes': [], 'questions': [], 'confirmations': [], 'flags': ['DELIVERY_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "actual": "I don't know the driver-assist rate — this requires a rate lookup/quote from Coastline Cold Freight before responding to Alicia Lane; escalate to a human for pricing.\n\nDetails for context:\n- refs: PO FQ-004213, Customer PO 884512HLF, Sales Order SO-071358\n- origin: Harbor Lane Foods Distribution Center, 1800 Alameda Way, Los Angeles, CA 90021 (LA Dock — must schedule PU via dock.scheduling@harborlanefoods.example)\n- destination: Tidewater County Schools Whse, 900 Bridge Blvd., Suffolk, VA 23434 (schedule delivery at 1-757-555-0123; deliver week of 11/2/26)\n- ready/ship date: October 30, 2026\n- temp_mode: frozen, setpoint -10°F (stated), driver must check in with clean pre-cooled trailer + 2 load locks\n- pallets: 5, cases: 300, weight: 7,410.40 lbs (gross plus pallet weight: 7,940.00 lbs)\n- special service requested: driver must attach pallet puller to each of the 5 pallets for receiving to unload — this is the item needing a price quote\n- cargo value: $33,410.00; freight quote base price (product/freight line) on PO: $2,840.00 — but this does not include the driver-assist/pallet puller fee being asked about\n\nFlags: RATE_LOOKUP_NEEDED (driver assist/pallet puller fee), PICKUP_TO_BE_SCHEDULED, DELIVERY_TO_BE_SCHEDULED. needs_human: True — reason: pricing for driver-assist service is not in hand and must be quoted back to Alicia Lane before confirming the order.",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.3768115942028986,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.3
+      },
+      "error": null,
+      "seconds": 6.623002999927849
+    },
+    {
+      "index": 6,
+      "input": "{'order_text': 'From: Ray Lopez <ray@sunridgefoods.example>\\nSent: Wednesday, October 21, 2026 10:40 AM\\nTo: Dan Ellis <Dan@coastlinecold.example>\\nSubject: RE: PO 77120 Fresno to Reno\\n\\nChange of plans, only 4 pallets on this one: 320 cases, 7,200 lb.\\n\\nRay\\n\\nFrom: Dan Ellis <Dan@coastlinecold.example>\\nSent: Tuesday, October 20, 2026 3:10 PM\\nTo: Ray Lopez <ray@sunridgefoods.example>\\nSubject: RE: PO 77120 Fresno to Reno\\n\\nRay, rate for the 6 pallets Fresno to Reno is $1,650.\\n\\nDan\\n\\nFrom: Ray Lopez <ray@sunridgefoods.example>\\nSent: Tuesday, October 20, 2026 1:02 PM\\nTo: Order Entry <Orders@coastlinecold.example>\\nSubject: PO 77120 Fresno to Reno\\n\\nPO 77120. 6 pallets, 480 cases, 10,800 lb. Frozen -10.\\nPick up Sunridge Foods, 1200 Industrial Way, Fresno CA 93725, ready Thu 10/22.\\nDeliver to Mill Street Market, 88 Mill St, Reno NV 89502.\\n', 'received_date': '2026-10-21'}",
+      "expected": "{'refs': ['77120'], 'origin': {'company': 'Sunridge Foods', 'street': '1200 Industrial Way', 'city': 'Fresno', 'state': 'CA', 'zip': '93725'}, 'destination': {'company': 'Mill Street Market', 'street': '88 Mill St', 'city': 'Reno', 'state': 'NV', 'zip': '89502'}, 'ready_date': '2026-10-22', 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': 4, 'pieces': 320, 'piece_unit': 'CASE', 'weight_lb': 7200.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [{'field': 'pallets', 'was': '6', 'now': '4'}, {'field': 'pieces', 'was': '480', 'now': '320'}, {'field': 'weight_lb', 'was': '10,800', 'now': '7,200'}], 'questions': [], 'confirmations': [], 'flags': ['REQUOTE_NEEDED', 'DELIVERY_TO_BE_SCHEDULED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "actual": "{'refs': ['77120'], 'origin': {'company': 'Sunridge Foods', 'street': '1200 Industrial Way', 'city': 'Fresno', 'state': 'CA', 'zip': '93725'}, 'destination': {'company': 'Mill Street Market', 'street': '88 Mill St', 'city': 'Reno', 'state': 'NV', 'zip': '89502'}, 'ready_date': '2026-10-22', 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': 4, 'pieces': 320, 'piece_unit': 'CASE', 'weight_lb': 7200.0, 'rate_usd': None, 'quoted_rate_usd': 1650.0, 'changes': ['Pallet count reduced from 6 pallets/480 cases/10,800 lb to 4 pallets/320 cases/7,200 lb (per Ray Lopez email 10/21 10:40 AM)'], 'questions': ['The $1,650 quote from Dan Ellis was based on 6 pallets — does this rate still apply now that the shipment is down to 4 pallets, or does it need to be re-quoted?'], 'confirmations': [], 'flags': ['RATE_NEEDS_REVIEW_DUE_TO_QUANTITY_CHANGE', 'PICKUP_TO_BE_SCHEDULED', 'DELIVERY_TO_BE_SCHEDULED'], 'needs_human': True, 'needs_human_reason': 'Pallet/weight quantity changed after rate was quoted for the original (6-pallet) load; need confirmation whether $1,650 still applies or a new rate is required before booking.'}",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.6990881458966566,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.2
+      },
+      "error": null,
+      "seconds": 6.031169708352536
+    },
+    {
+      "index": 7,
+      "input": "{'order_text': 'From: Dan Ellis <Dan@coastlinecold.example>\\nSent: Thursday, October 22, 2026 9:15 AM\\nTo: Ben Park <ben.park@seoulpantry.example>\\nSubject: RE: [FROZEN] PO# SP-2291 / COMMERCE,CA - DALLAS,TX\\n\\nBen, $1,950 all in for this one. Let me know.\\n\\nDan\\n\\nFrom: Ben Park <ben.park@seoulpantry.example>\\nSent: Wednesday, October 21, 2026 4:30 PM\\nTo: Dan Ellis <Dan@coastlinecold.example>\\nSubject: [FROZEN] PO# SP-2291 / COMMERCE,CA - DALLAS,TX\\n\\nPlease quote.\\n3 pallets, 210 cases, 4,600 lbs, frozen -10.\\nPick up ColdVault, 5500 Sheila St, Commerce CA 90040, ready 10/27.\\nDeliver to Pacific Grocers Dallas DC, 2550 Royal Ln, Dallas TX 75229, by 10/30.\\n\\nThank you\\nBen\\n', 'received_date': '2026-10-22'}",
+      "expected": "{'refs': ['SP-2291'], 'origin': {'company': 'ColdVault', 'street': '5500 Sheila St', 'city': 'Commerce', 'state': 'CA', 'zip': '90040'}, 'destination': {'company': 'Pacific Grocers Dallas DC', 'street': '2550 Royal Ln', 'city': 'Dallas', 'state': 'TX', 'zip': '75229'}, 'ready_date': '2026-10-27', 'pickup_date': None, 'delivery_date': '2026-10-30', 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': 3, 'pieces': 210, 'piece_unit': 'CASE', 'weight_lb': 4600.0, 'rate_usd': None, 'quoted_rate_usd': 1950.0, 'changes': [], 'questions': [], 'confirmations': [], 'flags': ['PICKUP_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "actual": "{'refs': ['SP-2291'], 'origin': {'company': 'ColdVault', 'street': '5500 Sheila St', 'city': 'Commerce', 'state': 'CA', 'zip': '90040'}, 'destination': {'company': 'Pacific Grocers Dallas DC', 'street': '2550 Royal Ln', 'city': 'Dallas', 'state': 'TX', 'zip': '75229'}, 'ready_date': '2026-10-27', 'pickup_date': None, 'delivery_date': '2026-10-30', 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': 3, 'pieces': 210, 'piece_unit': 'CASE', 'weight_lb': 4600.0, 'rate_usd': None, 'quoted_rate_usd': 1950.0, 'changes': [], 'questions': [], 'confirmations': [], 'flags': ['QUOTE_PENDING_CUSTOMER_CONFIRMATION', 'PICKUP_TO_BE_SCHEDULED', 'DELIVER_BY_DATE_NOT_FIRM_APPOINTMENT'], 'needs_human': True, 'needs_human_reason': \"Dan quoted $1,950 all-in on 10/22 but Ben has not yet confirmed/accepted the rate in this thread; need confirmation before booking and before entering rate_usd as final.\"}",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.8192771084337348,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.3
+      },
+      "error": null,
+      "seconds": 4.525347750168294
+    },
+    {
+      "index": 8,
+      "input": "{'order_text': 'From: Lena Cruz <lena@valleypet.example>\\nSent: Thursday, October 22, 2026 11:02 AM\\nTo: Order Entry <Orders@coastlinecold.example>\\nSubject: PO 4410 dry pet food\\n\\nDry van OK, no temp needed. 8 pallets, 640 bags, 14,200 lb.\\nPick up Valley Pet Distributors, 300 Oak Ave, Fresno CA 93706, ready Mon 10/26.\\nDeliver to Pet Supply Co-op, 1900 Market Blvd, Sacramento CA 95815, on 10/28.\\n\\nLena\\n', 'received_date': '2026-10-22'}",
+      "expected": "{'refs': ['4410'], 'origin': {'company': 'Valley Pet Distributors', 'street': '300 Oak Ave', 'city': 'Fresno', 'state': 'CA', 'zip': '93706'}, 'destination': {'company': 'Pet Supply Co-op', 'street': '1900 Market Blvd', 'city': 'Sacramento', 'state': 'CA', 'zip': '95815'}, 'ready_date': '2026-10-26', 'pickup_date': None, 'delivery_date': '2026-10-28', 'delivery_window': None, 'temp_mode': 'ambient', 'temp_min_f': None, 'temp_max_f': None, 'setpoint_f': None, 'setpoint_source': None, 'precool': None, 'pallets': 8, 'pieces': 640, 'piece_unit': 'BAG', 'weight_lb': 14200.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "actual": "{'refs': ['4410'], 'origin': {'company': 'Valley Pet Distributors', 'street': '300 Oak Ave', 'city': 'Fresno', 'state': 'CA', 'zip': '93706'}, 'destination': {'company': 'Pet Supply Co-op', 'street': '1900 Market Blvd', 'city': 'Sacramento', 'state': 'CA', 'zip': '95815'}, 'ready_date': '2026-10-26', 'pickup_date': '2026-10-26', 'delivery_date': '2026-10-28', 'delivery_window': None, 'temp_mode': 'dry', 'temp_min_f': None, 'temp_max_f': None, 'setpoint_f': None, 'setpoint_source': 'stated', 'precool': None, 'pallets': 8, 'pieces': 640, 'piece_unit': 'BAG', 'weight_lb': 14200.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED'], 'needs_human': False, 'needs_human_reason': None}\n\nDirect answer: PO 4410 is a no-temp (dry van) shipment — 8 pallets, 640 bags, 14,200 lb — picking up at Valley Pet Distributors, 300 Oak Ave, Fresno, CA 93706, ready Monday 10/26/2026, and delivering to Pet Supply Co-op, 1900 Market Blvd, Sacramento, CA 95815, on 10/28/2026. No rate was provided, so a rate lookup is needed.",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.7313432835820896,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.3
+      },
+      "error": null,
+      "seconds": 4.580527250189334
+    },
+    {
+      "index": 9,
+      "input": "{'order_text': 'From: Kim Tran <kim@northstarcopack.example>\\nSent: Friday, October 23, 2026 8:20 AM\\nTo: Order Entry <Orders@coastlinecold.example>\\nSubject: PO NS-8812 REFER\\n\\nFresh tofu, REFER. 2 pallets, 180 cases, 2,900 lb.\\nPick up Northstar Co-Pack, 45 Commerce Dr, Ontario CA 91761, ready 10/27.\\nDeliver to Sunridge Foods, 1200 Industrial Way, Fresno CA 93725.\\n\\nKim\\n', 'received_date': '2026-10-23'}",
+      "expected": "{'refs': ['NS-8812'], 'origin': {'company': 'Northstar Co-Pack', 'street': '45 Commerce Dr', 'city': 'Ontario', 'state': 'CA', 'zip': '91761'}, 'destination': {'company': 'Sunridge Foods', 'street': '1200 Industrial Way', 'city': 'Fresno', 'state': 'CA', 'zip': '93725'}, 'ready_date': '2026-10-27', 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': 'refrigerated', 'temp_min_f': 34.0, 'temp_max_f': 38.0, 'setpoint_f': None, 'setpoint_source': None, 'precool': None, 'pallets': 2, 'pieces': 180, 'piece_unit': 'CASE', 'weight_lb': 2900.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [], 'confirmations': [{'field': 'temp_mode', 'statement': \"We'll run PO NS-8812 refrigerated at 34°F to 38°F. Let us know if that's not right.\"}], 'flags': ['TEMP_STANDARD_ASSUMED', 'RATE_LOOKUP_NEEDED', 'DELIVERY_TO_BE_SCHEDULED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': False, 'needs_human_reason': None}",
+      "actual": "I don't know the required temperature/setpoint for this load — escalate to Kim Tran to confirm before dispatch, since \"REFER\" (reefer) was specified but no actual temperature range or setpoint was given, and fresh tofu typically needs a specific chilled range (commonly 33–40°F) that must be confirmed rather than assumed.\n\nEverything else extracted from the order:\n- PO reference: NS-8812\n- Origin: Northstar Co-Pack, 45 Commerce Dr, Ontario, CA 91761\n- Destination: Sunridge Foods, 1200 Industrial Way, Fresno, CA 93725\n- Ready date: 2026-10-27\n- Pickup date: not specified (assume on/after ready date, needs scheduling)\n- Delivery date/window: not specified\n- Commodity: Fresh tofu\n- Pallets: 2\n- Pieces: 180 cases\n- Weight: 2,900 lb\n- Temp mode: Refrigerated (stated as \"REFER\"), but no min/max/setpoint given\n- Rate/quoted rate: not provided — rate lookup needed\n\nFlags: RATE_LOOKUP_NEEDED, PICKUP_TO_BE_SCHEDULED, DELIVERY_TO_BE_SCHEDULED, TEMP_SETPOINT_MISSING\n\nneeds_human: True — reason: Temperature setpoint for a chilled/refrigerated fresh tofu load is not specified in the email and must be confirmed with the shipper before booking a reefer unit.",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.4620253164556962,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.3
+      },
+      "error": null,
+      "seconds": 5.188972166739404
+    },
+    {
+      "index": 10,
+      "input": "{'order_text': 'From: Alicia Lane <alicia@harborlanefoods.example>\\nSent: Friday, October 23, 2026 1:45 PM\\nTo: Order Entry <Orders@coastlinecold.example>\\nSubject: Two loads next week\\n\\nBoth frozen -10, ready 10/28 at our LA dock (Harbor Lane Foods, 2100 E 7th St, Los Angeles CA 90021).\\n\\nPO FQ-004230: 4 pallets, 6,100 lb to Tidewater County Schools Whse, Suffolk VA.\\nPO FQ-004231: 2 pallets, 2,950 lb to Bayview Schools Commissary, Norfolk VA.\\n\\nAlicia\\n', 'received_date': '2026-10-23'}",
+      "expected": "{'refs': ['FQ-004230', 'FQ-004231'], 'origin': {'company': 'Harbor Lane Foods', 'street': '2100 E 7th St', 'city': 'Los Angeles', 'state': 'CA', 'zip': '90021'}, 'destination': None, 'ready_date': '2026-10-28', 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': None, 'pieces': None, 'piece_unit': None, 'weight_lb': None, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [{'field': 'pieces', 'question': 'How many cases are on PO FQ-004230 and on PO FQ-004231?'}], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED', 'DELIVERY_TO_BE_SCHEDULED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': True, 'needs_human_reason': 'Two shipments in one email (two POs to two delivery locations); enter each separately.'}",
+      "actual": "Two separate loads to enter, both from the same origin and ready date — no rate, pickup, or delivery info given, so scheduling and rate lookup are still needed.\n\n- **Load 1 — PO FQ-004230**\n - Origin: Harbor Lane Foods, 2100 E 7th St, Los Angeles, CA 90021\n - Destination: Tidewater County Schools Whse, Suffolk, VA (no street address given)\n - Ready date: 2026-10-28\n - Pallets: 4, Weight: 6,100 lb\n - Temp: Frozen, -10°F (stated setpoint)\n - Pickup date, delivery date, delivery window, rate: not provided\n\n- **Load 2 — PO FQ-004231**\n - Origin: Harbor Lane Foods, 2100 E 7th St, Los Angeles, CA 90021\n - Destination: Bayview Schools Commissary, Norfolk, VA (no street address given)\n - Ready date: 2026-10-28\n - Pallets: 2, Weight: 2,950 lb\n - Temp: Frozen, -10°F (stated setpoint)\n - Pickup date, delivery date, delivery window, rate: not provided\n\nFlags for both: RATE_LOOKUP_NEEDED, PICKUP_TO_BE_SCHEDULED, DELIVERY_TO_BE_SCHEDULED, and MISSING_DESTINATION_STREET_ADDRESS (need full street address for both Virginia destinations before dispatch — recommend following up with Alicia).\n\nneeds_human: No for data entry/rate lookup, but escalate to get the missing destination street addresses before scheduling pickup/delivery.",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.4150943396226416,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.4
+      },
+      "error": null,
+      "seconds": 6.033730000257492
+    },
+    {
+      "index": 11,
+      "input": "{'order_text': \"From: Ray Lopez <ray@sunridgefoods.example>\\nSent: Monday, October 26, 2026 9:05 AM\\nTo: Order Entry <Orders@coastlinecold.example>\\nSubject: PO 77188\\n\\nFrozen -10, 5 pallets, 400 cases, 8,800 lb. Pick up at our Fresno plant,\\n1200 Industrial Way, Fresno CA 93725, ready 10/29. Delivering to a new\\ncustomer of ours, I'll send the ship-to once I have it.\\n\\nRay\\n\", 'received_date': '2026-10-26'}",
+      "expected": "{'refs': ['77188'], 'origin': {'company': 'Sunridge Foods', 'street': '1200 Industrial Way', 'city': 'Fresno', 'state': 'CA', 'zip': '93725'}, 'destination': None, 'ready_date': '2026-10-29', 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': 5, 'pieces': 400, 'piece_unit': 'CASE', 'weight_lb': 8800.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': [{'field': 'destination', 'question': \"What's the delivery address and consignee name for PO 77188?\"}], 'confirmations': [], 'flags': ['RATE_LOOKUP_NEEDED', 'DELIVERY_TO_BE_SCHEDULED', 'PICKUP_TO_BE_SCHEDULED'], 'needs_human': True, 'needs_human_reason': \"The order doesn't name a delivery location.\"}",
+      "actual": "{'refs': ['77188'], 'origin': {'company': 'Sunridge Foods', 'street': '1200 Industrial Way', 'city': 'Fresno', 'state': 'CA', 'zip': '93725'}, 'destination': None, 'ready_date': '2026-10-29', 'pickup_date': None, 'delivery_date': None, 'delivery_window': None, 'temp_mode': 'frozen', 'temp_min_f': -10.0, 'temp_max_f': 0.0, 'setpoint_f': -10.0, 'setpoint_source': 'stated', 'precool': None, 'pallets': 5, 'pieces': 400, 'piece_unit': 'CASE', 'weight_lb': 8800.0, 'rate_usd': None, 'quoted_rate_usd': None, 'changes': [], 'questions': ['What is the destination (ship-to) address for this load?'], 'confirmations': [], 'flags': ['DESTINATION_MISSING', 'RATE_LOOKUP_NEEDED', 'PICKUP_TO_BE_SCHEDULED', 'DELIVERY_TO_BE_SCHEDULED'], 'needs_human': True, 'needs_human_reason': 'Destination address was not provided by shipper (\"I\\'ll send the ship-to once I have it\"); cannot schedule or quote delivery without it. Escalate to follow up with Ray Lopez (Sunridge Foods, PO 77188) for the ship-to address before dispatching.'}",
+      "scores": {
+        "exact": 0.0,
+        "f1": 0.7786259541984732,
+        "required": 1.0,
+        "declines": 1.0,
+        "needs_human": 0.0,
+        "correctness (GEval)": 0.8
+      },
+      "error": null,
+      "seconds": 4.267502374947071
+    }
+  ]
+}
