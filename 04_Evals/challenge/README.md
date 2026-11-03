@@ -747,7 +747,7 @@ saved run to be measured against.
 | Failure taxonomy, 20 hand scores (Step 1) | [failures.md](../../use_case/evals/failures.md) · [human_scores.jsonl](../../use_case/evals/human_scores.jsonl) | 18 of 50 real orders failed; temperature is the largest group (7 of 18) |
 | Model-free scorers, echo / oracle (Step 2) | [harness.py](../../use_case/evals/harness.py) · [run.py](../../use_case/evals/run.py) · [below](#step-2) | 20 goldens (7 from real failures): the endpoint escalated only 4 of 8 orders that needed a person; three of the misses are duplicate-load risks. |
 | Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge: separation 1.00, agreement 20/20, used. Broad approve judge: oracle 0.37, not used. |
-| Generated failures (Step 4) | | |
+| Generated failures (Step 4) | [synthetic.jsonl](../../use_case/evals/synthetic.jsonl) · [detect_synthetic.py](../../use_case/evals/detect_synthetic.py) · [below](#step-4) | 106 generated vs 18 natural; each scorer 100% on its own mode; blind spot: counts (N1 0/18). |
 | Scenarios (Step 5) | | |
 | Baseline, interval, compare() PASS (Step 6) | | |
 | Demo rehearsal (Step 7) | | |
@@ -793,5 +793,34 @@ contract doesn't have (commodity, accessorials, time windows) and applied the ru
 and the three functions score what can be scored. Its complaints still helped: they found two goldens whose threads
 now end with the broker confirming the order is already entered (fixed: goldens 1 and 2 trimmed, golden 20 added),
 and an inconsistent pickup-date rule (fixed).
+
+## Step 4
+
+**Natural failures: 18 of 50 real traces. Generated: 106**, from the 20 goldens by breaking one thing per copy
+(`make_synthetic.py`); the label is free because the break is known. Table: `detect_synthetic.py --judge`. Bold = the
+scorer expected to catch that mode.
+
+| Mode | Failure | What was broken | n | temperature | silent_gaps | needs_human | update_judge |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| T1 | #1 | stated setpoint collapsed into a one-number range | 10 | **10/10** | 0/10 | 0/10 | 0/10 |
+| T2 | #3 | frozen range copied from the form's example text (0 to 10) | 13 | **13/13** | 0/13 | 0/13 | 0/13 |
+| T3 | #3 | cold end of the range nudged by 2F (hard) | 16 | **16/16** | 0/16 | 0/16 | 0/16 |
+| G1 | #2 | origin zip blanked and not asked | 12 | 0/12 | **12/12** | 0/12 | 0/12 |
+| G2 | #2 | one needed customer question removed (hard) | 5 | 0/5 | **5/5** | 0/5 | 0/5 |
+| H1 | #4/#5 | an order that needs a person passed straight through | 8 | 0/8 | 0/8 | **8/8** | 2/8 |
+| H2 | #5 | an ordinary order escalated as 'two shipments' (hard) | 12 | 0/12 | 0/12 | **12/12** | 0/12 |
+| U1 | #4 | an ordinary order called an update | 12 | 0/12 | 0/12 | **12/12** | **12/12** |
+| N1 | none | pallets off by one (no scorer checks pallets) | 18 | 0/18 | 0/18 | 0/18 | 0/18 |
+
+- **Every scorer catches 100% of its own failure type and 0% of the others**, including the "hard" breaks (a 2°F nudge,
+  one question removed). That's because the three functions are exact matches against the golden: no easy-vs-hard gap,
+  but they can't run without a golden, and their real risk is false alarms on answers that are right in a different form.
+- **The update judge is the only reference-free check:** all 12 false updates and both missed updates caught, 0 false
+  alarms on the other 94, including the hard "two shipments" escalations.
+- **Blind spot (N1, 0/18):** nothing checks pallets, weight, pieces, refs or zips; a wrong count passes every scorer.
+- **Live-traffic gap:** without a golden, a missed tender, already-entered thread or two-shipment email would pass;
+  only `needs_human`, which needs the golden, catches those.
+
+Judge calls (measured): 146 calls, about 221K tokens, 267 s.
 
 ## Bring it to work
