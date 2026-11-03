@@ -749,9 +749,9 @@ saved run to be measured against.
 | Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge: separation 1.00, agreement 20/20, used. Broad approve judge: oracle 0.37, not used. |
 | Generated failures (Step 4) | [synthetic.jsonl](../../use_case/evals/synthetic.jsonl) · [detect_synthetic.py](../../use_case/evals/detect_synthetic.py) · [below](#step-4) | 106 generated vs 18 natural; each scorer 100% on its own mode; blind spot: counts (N1 0/18). |
 | Scenarios (Step 5) | [scenarios.py](../../use_case/evals/scenarios.py) · [run_scenarios.py](../../use_case/evals/run_scenarios.py) · [below](#step-5) | must do / must ask pass^3 1.00; must refuse pass^3 0.00 (update never escalated on the email as sent); the model user leaked the answer |
-| Baseline, interval, compare() PASS (Step 6) | [baseline.json](../../use_case/evals/baseline.json) · [decisions.md](../../use_case/decisions.md) · [below](#step-6) | temperature 0.85 [0.70, 1.00] on 20; needs_human 0.75 [0.55, 0.90], interval includes its chance floor; compare() PASS |
+| Baseline, interval, compare() PASS (Step 6) | [baseline.json](../../use_case/evals/baseline.json) · [decisions.md](../../use_case/decisions.md) · [below](#step-6) | needs_human 0.75 [0.55, 0.90] on 20 (headline; interval includes its chance floor); temperature 0.85 [0.70, 1.00] watch; compare() PASS |
 | Still runs in Docker | [Dockerfile](../../01_Product_Engineering/challenge/Dockerfile) | Builds from the lock and answers on the synthetic orders; the new fields (setpoint, precool, pieces) show in the draft; no production data in the image |
-| Demo rehearsal (Step 7) | | |
+| Demo rehearsal (Step 7) | [below](#step-7) · [stakeholders.md](../../use_case/stakeholders.md) | Rehearsed with sales, confirmed with the co-owner; the headline moved to needs_human; six new failure lines |
 | Bring it to work (Step 8) | [below](#bring-it-to-work) | Manual order entry with no measured error rate; next 50 orders as they arrive; TMS API and M365 granted, written AI-vendor sign-off still needed |
 
 ## Step 2
@@ -885,9 +885,10 @@ once, model user (`gpt-6.1-sol`) x3.
 
 ## Step 6
 
-**Headline: `temperature` 0.85, 95% CI [0.70, 1.00]**, on 20 goldens, one endpoint run (Opus 5.5), the three
-model-free scorers. Watch metric: `needs_human` 0.75, 95% CI [0.55, 0.90]; its interval includes the chance floor
-(0.60). Two consecutive runs gave identical numbers.
+**Headline: `needs_human` 0.75, 95% CI [0.55, 0.90]**, on 20 goldens, one endpoint run (Opus 5.5), the three
+model-free scorers. Its interval includes the chance floor (0.60), so 20 cases can't yet show it beats never
+escalating. Watch metric: `temperature` 0.85, 95% CI [0.70, 1.00]. The headline moved here from `temperature` after
+the Step 7 rehearsal: a duplicate load costs more than a wrong temperature caught before pickup. Two consecutive runs gave identical numbers.
 
 `python use_case/evals/run.py --save` → `use_case/evals/baseline.json`:
 
@@ -902,3 +903,23 @@ intervals (`difference_ci`) rather than trusting a bare PASS/REGRESSION. Decisio
 - **Model/endpoint:** the endpoint on Opus 5.5; judge and simulated user on gpt-6.1-sol. Real emails go to two outside AI vendors, which the freight broker's co-owner has verbally expressed they're fine with.
 - **Approval:** already granted: API access to the TMS through the vendor, and Microsoft 365 admin access. Still to ask: written sign-off from the co-owner to send customer emails to two outside AI vendors (currently verbal).
 - **Judge calls, measured:** run.py = 0 judge calls per commit (the baseline is function scorers only); run.py --judge = 120 calls, about 176K tokens, 222 s. That decides every commit vs nightly.
+
+## Step 7
+
+Rehearsed with sales at the freight brokerage, answers confirmed with the co-owner. Row in
+[`stakeholders.md`](../../use_case/stakeholders.md); decision in [`decisions.md`](../../use_case/decisions.md) (Week 4, last row).
+
+**What changed:** the headline moved from `temperature` to `needs_human`. A duplicate load costs more than a wrong
+temperature caught before pickup. The rehearsal also added six failure lines to
+[`failures.md`](../../use_case/evals/failures.md#found-in-the-rehearsal-not-by-any-scorer) that no scorer caught.
+
+**The demo, timed** (three redacted orders: a thread correction, chilled @ 32, a PO update):
+
+| Minute | What |
+| --- | --- |
+| 0–2 | Four people retype emailed orders into the TMS; nobody measures how often a load goes in wrong |
+| 2–4 | The PO update (golden 15) run live: the draft looks clean but isn't escalated, the failure shown on purpose; then the thread correction and its change log |
+| 4-6 | needs_human 0.75 [0.55, 0.90] on 20: escalated 4 of 8 that needed a person; doesn't cover counts, refs or zips, temperature per commodity, or live traffic |
+| 6-8.5 | Run it alongside the order desk on last week's loads; need the commodity-to-range list from the co-owner and written sign-off for the AI vendors |
+
+Rehearsal ran 8:30, over the five minutes; for Week 5 I'll make sure that we're tighter on schedule rather than going on tangents during the call.

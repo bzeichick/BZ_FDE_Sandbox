@@ -25,8 +25,8 @@ from helpers import harness as hh               # the course's run/save/load/com
 from harness import SCORERS, bootstrap_ci       # your three scorers (use_case/evals/harness.py)
 
 BASELINE = HERE / "baseline.json"
-HEADLINE = "temperature"          # traces to the top line of failures.md (#1, with #3)
-WATCH = "needs_human"             # the costliest mistake per case (duplicate loads); gated too
+HEADLINE = "needs_human"          # the costliest mistake (duplicate loads); moved here after the Step 7 rehearsal
+WATCH = "temperature"             # the top line of failures.md by count (#1, with #3); gated too
 
 CASES = [json.loads(line) for line in open(HERE / "golden.jsonl")]
 

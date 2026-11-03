@@ -35,8 +35,19 @@ Secondary in two of these traces: the standard minimum temperature left blank (6
 - **My own criteria moved.** Six traces needed a second decision because the tool did exactly what ops had done (or the reverse). Those were settled explicitly: 4, 10, 20, 21 fail; 36, 48 pass. A second read found that trace 23 is also an update (#4), not only a temperature failure.
 - **Appointments are almost never flagged**, even when the order says "appointment required". Not counted as failures: appointments are the dispatch step, not order entry.
 - **The update failure is real, and it isn’t the noise.** A fair contrast (the same facts, date and parties, without the signature and fine print) fails exactly like the real email: no escalation on the first draft, 0/4. The S8 “clean version passed” only because it lacked a shipper and was escalated for the missing pickup. The agent doesn’t recognize “PO has been updated” as an update; the fix is a rule, not cleaner input.
-- **Pickup dates are requests, not commitments.** The broker tries to meet the customer's date but uses the next LTL run on that lane ("they want Monday, the next run is Wednesday, so be it"). A customer's date is a ready date with the pickup to be scheduled; it's a firm pickup only when it already happened, the broker has already scheduled it, or the customer says it must be that day. Three goldens (6, 15, 16) had treated a date on the shipper's form as firm and were corrected; the endpoint's prompt rule changed to match.
+- **Pickup dates are requests, not commitments.** The broker tries to meet the customer's date but uses the next LTL run on that lane ("they want Monday, the next run is Wednesday, so be it"). A customer's date is a ready date with the pickup to be scheduled; it's a firm pickup only when it already happened, the broker has already scheduled it, or the customer says it must be that day. Three goldens (6, 15, 16) had treated a date on the shipper's form as firm and were corrected; the endpoint's prompt rule changed to match.  Revised after the rehearsal: show the shipper's date as the requested pickup date rather than leaving it blank; the goldens change in the next revision (Week 5).
 - **A thread can end with the broker's own "already entered" reply.** Since the endpoint now reads whole threads, two Week 1 goldens ended with ops saying "this order has been received and entered in our system". Drafting that again would create a duplicate load, so it must be escalated, not entered. Found by reading the broad judge's complaints, not by any scorer. Goldens 1 and 2 now stop at the customer's message, and golden 20 keeps the reply and tests this case.
+
+
+## Found in the rehearsal (not by any scorer)
+
+- **No bill-to:** the draft never says who we invoice, which is the first thing ops checks.
+- **The requested pickup date left blank** when the shipper wrote "Ships Thursday" or "PICK UP FRIDAY 7/18".
+- **Replies we owe shown as "no questions":** "please confirm", "confirm receipt" and "send the appointment time" are follow-ups the customer expects.
+- **Reference numbers dropped** (batch #, BOL #) and **location detail dropped** ("Area#2").
+- **The received date not taken from the email**, so relative dates ("this week", "Thursday") can land in the wrong week.
+- **Temperature correctness is per commodity:** "chilled" can still be wrong for the product. The `temperature` scorer can't see that until the goldens carry commodity ranges.
+ 
 
 ## What these led to
 
