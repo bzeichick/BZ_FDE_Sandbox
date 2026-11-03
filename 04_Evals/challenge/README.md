@@ -752,7 +752,7 @@ saved run to be measured against.
 | Baseline, interval, compare() PASS (Step 6) | [baseline.json](../../use_case/evals/baseline.json) · [decisions.md](../../use_case/decisions.md) · [below](#step-6) | temperature 0.85 [0.70, 1.00] on 20; needs_human 0.75 [0.55, 0.90], interval includes its chance floor; compare() PASS |
 | Still runs in Docker | [Dockerfile](../../01_Product_Engineering/challenge/Dockerfile) | Builds from the lock and answers on the synthetic orders; the new fields (setpoint, precool, pieces) show in the draft; no production data in the image |
 | Demo rehearsal (Step 7) | | |
-| Bring it to work (Step 8) | [below](#bring-it-to-work) | |
+| Bring it to work (Step 8) | [below](#bring-it-to-work) | Manual order entry with no measured error rate; next 50 orders as they arrive; TMS API and M365 granted, written AI-vendor sign-off still needed |
 
 ## Step 2
 
@@ -897,3 +897,8 @@ With 20 cases one case is 0.05 of a column, more than `compare()`'s 0.02 toleran
 intervals (`difference_ci`) rather than trusting a bare PASS/REGRESSION. Decision: `use_case/decisions.md`, Week 4.
 
 ## Bring it to work
+- **The process:** today four people retype emailed orders into the TMS, and nobody measures how often a load is entered wrong, until a carrier or receiver finds out.
+- **Data:** the real order emails (co-owner's mailbox, which is copied on every order, including web orders) plus what ops actually booked in the TMS. The goldens were judged against both by me with the co-owner's rules. Next, I'd swap in the next 50 orders as they arrive.
+- **Model/endpoint:** the endpoint on Opus 5.5; judge and simulated user on gpt-6.1-sol. Real emails go to two outside AI vendors, which the freight broker's co-owner has verbally expressed they're fine with.
+- **Approval:** already granted: API access to the TMS through the vendor, and Microsoft 365 admin access. Still to ask: written sign-off from the co-owner to send customer emails to two outside AI vendors (currently verbal).
+- **Judge calls, measured:** run.py = 0 judge calls per commit (the baseline is function scorers only); run.py --judge = 120 calls, about 176K tokens, 222 s. That decides every commit vs nightly.
