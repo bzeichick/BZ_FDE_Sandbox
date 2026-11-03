@@ -173,3 +173,31 @@ Example of a 0: the same email, but the draft says 3 pallets, or invents a rate,
 destination zip empty without asking.
 
 Reply with JSON only: {{"score": 0 or 1, "why": "<one sentence naming the first condition that failed, or 'all pass'>"}}"""
+
+
+# ---------------------------------------------------------------- intervals (Step 6)
+# Copied from Session 7 (04_Evals/sessions/S7_Practical_Evals.py, Task 5): course code, not a scorer.
+
+def bootstrap_ci(scores, n_resamples: int = 5000, level: float = 0.95, seed: int = 0):
+    """Confidence interval for a mean, by resampling. Returns (mean, low, high).
+
+    Sample the results you have, with replacement, thousands of times. The spread of those means is
+    how much the number would move with a different set of the same size. No distribution assumed.
+    """
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    arr = np.asarray(scores, dtype=float)
+    means = arr[rng.integers(0, len(arr), size=(n_resamples, len(arr)))].mean(axis=1)
+    lo, hi = np.percentile(means, [(1 - level) / 2 * 100, (1 + level) / 2 * 100])
+    return float(arr.mean()), float(lo), float(hi)
+
+
+def difference_ci(scores_a, scores_b, n_resamples: int = 5000, level: float = 0.95, seed: int = 0):
+    """CI for the difference (b - a) between two runs on the SAME cases: resample cases, keep the pairing."""
+    import numpy as np
+    rng = np.random.default_rng(seed)
+    a, b = np.asarray(scores_a, dtype=float), np.asarray(scores_b, dtype=float)
+    idx = rng.integers(0, len(a), size=(n_resamples, len(a)))
+    diffs = (b[idx] - a[idx]).mean(axis=1)
+    lo, hi = np.percentile(diffs, [(1 - level) / 2 * 100, (1 + level) / 2 * 100])
+    return float((b - a).mean()), float(lo), float(hi)

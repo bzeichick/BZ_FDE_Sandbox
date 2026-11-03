@@ -749,7 +749,7 @@ saved run to be measured against.
 | Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge: separation 1.00, agreement 20/20, used. Broad approve judge: oracle 0.37, not used. |
 | Generated failures (Step 4) | [synthetic.jsonl](../../use_case/evals/synthetic.jsonl) · [detect_synthetic.py](../../use_case/evals/detect_synthetic.py) · [below](#step-4) | 106 generated vs 18 natural; each scorer 100% on its own mode; blind spot: counts (N1 0/18). |
 | Scenarios (Step 5) | [scenarios.py](../../use_case/evals/scenarios.py) · [run_scenarios.py](../../use_case/evals/run_scenarios.py) · [below](#step-5) | must do / must ask pass^3 1.00; must refuse pass^3 0.00 (update never escalated on the email as sent); the model user leaked the answer |
-| Baseline, interval, compare() PASS (Step 6) | | |
+| Baseline, interval, compare() PASS (Step 6) | [baseline.json](../../use_case/evals/baseline.json) · [decisions.md](../../use_case/decisions.md) · [below](#step-6) | temperature 0.85 [0.70, 1.00] on 20; needs_human 0.75 [0.55, 0.90], interval includes its chance floor; compare() PASS |
 | Demo rehearsal (Step 7) | | |
 | Bring it to work (Step 8) | [below](#bring-it-to-work) | |
 
@@ -881,5 +881,18 @@ once, model user (`gpt-6.1-sol`) x3.
   escalated for the missing pickup, which looked like a pass.)
 
 **One transcript, read in full** (scripted refusal): with nothing new from the customer (“Any update?”), the agent’s second draft changed the temperature range from blank–0°F to −10–0°F and still didn’t escalate. The same input gave a different answer, which no scorer checks. Next scorer: re-ask, and require the same draft.
+
+## Step 6
+
+**Headline: `temperature` 0.85, 95% CI [0.70, 1.00]**, on 20 goldens, one endpoint run (Opus 5.5), the three
+model-free scorers. Watch metric: `needs_human` 0.75, 95% CI [0.55, 0.90]; its interval includes the chance floor
+(0.60). Two consecutive runs gave identical numbers.
+
+`python use_case/evals/run.py --save` → `use_case/evals/baseline.json`:
+
+    PASS  week4-baseline → week4-baseline  [needs_human +0.000  silent_gaps +0.000  temperature +0.000]
+
+With 20 cases one case is 0.05 of a column, more than `compare()`'s 0.02 tolerance, so later weeks compare paired
+intervals (`difference_ci`) rather than trusting a bare PASS/REGRESSION. Decision: `use_case/decisions.md`, Week 4.
 
 ## Bring it to work
