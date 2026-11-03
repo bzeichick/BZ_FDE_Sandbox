@@ -748,7 +748,7 @@ saved run to be measured against.
 | Model-free scorers, echo / oracle (Step 2) | [harness.py](../../use_case/evals/harness.py) · [run.py](../../use_case/evals/run.py) · [below](#step-2) | 20 goldens (7 from real failures): the endpoint escalated only 4 of 8 orders that needed a person; three of the misses are duplicate-load risks. |
 | Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge: separation 1.00, agreement 20/20, used. Broad approve judge: oracle 0.37, not used. |
 | Generated failures (Step 4) | [synthetic.jsonl](../../use_case/evals/synthetic.jsonl) · [detect_synthetic.py](../../use_case/evals/detect_synthetic.py) · [below](#step-4) | 106 generated vs 18 natural; each scorer 100% on its own mode; blind spot: counts (N1 0/18). |
-| Scenarios (Step 5) | | |
+| Scenarios (Step 5) | [scenarios.py](../../use_case/evals/scenarios.py) · [run_scenarios.py](../../use_case/evals/run_scenarios.py) · [below](#step-5) | must do / must ask pass^3 1.00; must refuse pass^3 0.00 (update never escalated on the email as sent); the model user leaked the answer |
 | Baseline, interval, compare() PASS (Step 6) | | |
 | Demo rehearsal (Step 7) | | |
 | Bring it to work (Step 8) | [below](#bring-it-to-work) | |
@@ -822,5 +822,64 @@ scorer expected to catch that mode.
   only `needs_human`, which needs the golden, catches those.
 
 Judge calls (measured): 146 calls, about 221K tokens, 267 s.
+
+## Step 5
+
+Three scenarios (`scenarios.py`, from Session 8): must do, must ask, must refuse. The refusal uses the real redacted
+update email from golden 15. Checked on state, the drafted record, not the words. `run_scenarios.py`: scripted user
+once, model user (`gpt-6.1-sol`) x3.
+
+**The endpoint (scripted user ×1, model user ×3):**
+
+| agent | user | scenario | repeat | state check | text check | turns | ended | no repeated questions | errors |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| endpoint | scripted | must do: complete frozen order |  | 1 | 1 | 1 | goal reached | 1 | 0 |
+| endpoint | model | must do: complete frozen order | 1 | 1 | 1 | 1 | goal reached | 1 | 0 |
+| endpoint | model | must do: complete frozen order | 2 | 1 | 1 | 1 | goal reached | 1 | 0 |
+| endpoint | model | must do: complete frozen order | 3 | 1 | 1 | 1 | goal reached | 1 | 0 |
+| endpoint | scripted | must ask: temperature withheld |  | 1 | 1 | 2 | goal reached | 1 | 0 |
+| endpoint | model | must ask: temperature withheld | 1 | 1 | 1 | 2 | goal reached | 1 | 0 |
+| endpoint | model | must ask: temperature withheld | 2 | 1 | 1 | 2 | goal reached | 1 | 0 |
+| endpoint | model | must ask: temperature withheld | 3 | 1 | 1 | 2 | goal reached | 1 | 0 |
+| endpoint | scripted | must refuse: real update email |  | 0 | 0 | 3 | user gave up | 1 | 0 |
+| endpoint | model | must refuse: real update email | 1 | 0 | 1 | 2 | goal reached | 1 | 0 |
+| endpoint | model | must refuse: real update email | 2 | 0 | 1 | 2 | goal reached | 1 | 0 |
+| endpoint | model | must refuse: real update email | 3 | 0 | 1 | 2 | goal reached | 1 | 0 |
+
+**pass^k (model user, state check, 3 repeats)**
+
+| scenario | passed | pass^1 | pass^3 |
+| --- | --- | --- | --- |
+| must do: complete frozen order | 3/3 | 1.00 | 1.00 |
+| must ask: temperature withheld | 3/3 | 1.00 | 1.00 |
+| must refuse: real update email | 0/3 | 0.00 | 0.00 |
+
+**Fair contrast (same facts, date and parties, no noise), re-run:**
+
+| agent | user | scenario | repeat | state check | text check | turns | ended | no repeated questions | errors |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| endpoint | scripted | contrast: cleaned-up update email |  | 0 | 0 | 3 | user gave up | 1 | 0 |
+| endpoint | model | contrast: cleaned-up update email | 1 | 0 | 1 | 2 | goal reached | 1 | 0 |
+| endpoint | model | contrast: cleaned-up update email | 2 | 0 | 1 | 2 | goal reached | 1 | 0 |
+| endpoint | model | contrast: cleaned-up update email | 3 | 0 | 1 | 2 | goal reached | 1 | 0 |
+
+**pass^k, fair contrast (model user, state check, 3 repeats):**
+
+| scenario | passed | pass^1 | pass^3 |
+| --- | --- | --- | --- |
+| contrast: cleaned-up update email | 0/3 | 0.00 | 0.00 |
+
+- **Both checks passed first:** the oracle satisfies both users (8/8); a paraphrasing oracle passes the state check
+  but fails the text check every time, and the user gives up on it.
+- **must do and must ask: pass^3 = 1.00.** must refuse: **pass^3 = 0.00**: the update is never escalated on the email
+  as sent.
+- **The model user leaked the answer.** In every model-user run its second message said "already-booked order",
+  and only then did the agent escalate. Scoring the final draft gave a false pass^3 of 1.00; the verifier now scores
+  the first draft, the one ops would get.
+- **Contrast (same facts, no noise): pass^3 = 0.00, the same as the real email.** The noise isn't the cause; the agent
+  doesn't recognize an update even in a clean email. (A first contrast ported from Session 8 had no shipper and was
+  escalated for the missing pickup, which looked like a pass.)
+
+**One transcript, read in full** (scripted refusal): with nothing new from the customer (“Any update?”), the agent’s second draft changed the temperature range from blank–0°F to −10–0°F and still didn’t escalate. The same input gave a different answer, which no scorer checks. Next scorer: re-ask, and require the same draft.
 
 ## Bring it to work
