@@ -1,6 +1,7 @@
 """Step 3, agreement half: does the update judge agree with a human? Plumbing; the labels are the human's.
 
-  uv run python use_case/evals/judge_agreement.py
+  uv run python use_case/evals/judge_agreement.py                    # update judge vs your update labels
+  uv run python use_case/evals/judge_agreement.py --rubric approve   # broad judge vs your 20 hand scores (pass/fail)
 
 Reads your 1/0 labels from use_case/data/update_labels.md (one per hand-scored trace), asks the judge
 the same question about the same agent draft, and reports: agreement, the chance floor (what always
@@ -16,10 +17,9 @@ HERE = Path(__file__).resolve().parent
 ROOT = HERE.parents[1]
 sys.path.insert(0, str(ROOT))
 
-from judge_check import JUDGE_MODEL, ask              # also loads .env
+from judge_check import JUDGE_MODEL, ask, pick_rubric   # also loads .env
 from helpers.config import from_env
 from helpers.judge import Judge
-from harness import UPDATE_RUBRIC
 
 LABELS = ROOT / "use_case" / "data" / "update_labels.md"
 TRACES = ROOT / "use_case" / "data" / "human_scores.real.jsonl"
@@ -39,13 +39,17 @@ def read_labels() -> dict[str, int]:
 
 
 def main() -> None:
-    labels = read_labels()
+    name, rubric = pick_rubric(sys.argv)
     rows = [json.loads(l) for l in open(TRACES)]
+    if name == "approve":    # the human labels are your original hand scores: could ops approve it unchanged?
+        labels = {str(r["trace"]): int(str(r["pass"]) == "True") for r in rows}
+    else:
+        labels = read_labels()
     missing = [str(r["trace"]) for r in rows if str(r["trace"]) not in labels]
     if missing:
         sys.exit(f"Answer q1 and q2 (yes/no) for every trace first. Missing: {', '.join(missing)}")
 
-    judge = Judge(from_env(ROOT), rubric=UPDATE_RUBRIC, model=JUDGE_MODEL)
+    judge = Judge(from_env(ROOT), rubric=rubric, model=JUDGE_MODEL)
     agree, disagreements = 0, []
     for r in rows:
         draft = r["actual"] if isinstance(r["actual"], str) else json.dumps(r["actual"], ensure_ascii=False)
@@ -60,7 +64,7 @@ def main() -> None:
     n = len(rows)
     ones = sum(labels[str(r["trace"])] for r in rows)
     floor = max(ones, n - ones) / n
-    print(f"\n\njudge: {JUDGE_MODEL}   traces: {n}   your labels: {ones} ones, {n - ones} zeros")
+    print(f"\n\nrubric: {name}   judge: {JUDGE_MODEL}   traces: {n}   your labels: {ones} ones, {n - ones} zeros")
     print(f"agreement: {agree}/{n} = {agree / n:.2f}   chance floor (always guess the majority): {floor:.2f}")
     print("above the floor" if agree / n > floor else "NOT above the floor: the judge is no better than guessing")
     for trace, human, j, why in disagreements:

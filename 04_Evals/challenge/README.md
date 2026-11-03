@@ -745,8 +745,8 @@ saved run to be measured against.
 | Deliverable | Where | In one line |
 | --- | --- | --- |
 | Failure taxonomy, 20 hand scores (Step 1) | [failures.md](../../use_case/evals/failures.md) · [human_scores.jsonl](../../use_case/evals/human_scores.jsonl) | 18 of 50 real orders failed; temperature is the largest group (7 of 18) |
-| Model-free scorers, echo / oracle (Step 2) | [harness.py](../../use_case/evals/harness.py) · [run.py](../../use_case/evals/run.py) · [below](#step-2) | 19 goldens (6 from real failures): the endpoint fails all 6 real-failure cases, most often on escalation; it let 3 of 7 orders that needed a person through as normal drafts. |
-| Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge (failure #4): separation 1.00 / agreement 1.00 on 20 |
+| Model-free scorers, echo / oracle (Step 2) | [harness.py](../../use_case/evals/harness.py) · [run.py](../../use_case/evals/run.py) · [below](#step-2) | 20 goldens (7 from real failures): the endpoint escalated only 4 of 8 orders that needed a person; three of the misses are duplicate-load risks. |
+| Judge (Step 3) | [harness.py](../../use_case/evals/harness.py) (`UPDATE_RUBRIC`) · [judge_check.py](../../use_case/evals/judge_check.py) · [below](#step-3) | Update judge: separation 1.00, agreement 20/20, used. Broad approve judge: oracle 0.37, not used. |
 | Generated failures (Step 4) | | |
 | Scenarios (Step 5) | | |
 | Baseline, interval, compare() PASS (Step 6) | | |
@@ -755,24 +755,27 @@ saved run to be measured against.
 
 ## Step 2
 
-Three scorers, each tracing to a line in `failures.md`. `python use_case/evals/run.py`, 19 goldens, one endpoint run on `anthropic/claude-opus-5-5`.
+Three model-free scorers plus the update judge (Step 3), each tracing to a line in `failures.md`. `python use_case/evals/run.py`, 20 goldens, one endpoint run on `anthropic/claude-opus-5-5`.
 
-| System | temperature | silent_gaps | needs_human | errors |
-| --- | --- | --- | --- | --- |
-| echo | 0.00 | 0.00 | 0.00 | 0 |
-| oracle | 1.00 | 1.00 | 1.00 | 0 |
-| empty | 0.11 | 0.21 | 0.00 | 0 |
-| endpoint | 0.89 | 0.95 | 0.79 | 0 |
+| System | temperature | silent_gaps | needs_human | update_judge | errors |
+| --- | --- | --- | --- | --- | --- |
+| echo | 0.00 | 0.00 | 0.00 | 0.00 | 0 |
+| oracle | 1.00 | 1.00 | 1.00 | 1.00 | 0 |
+| empty | 0.15 | 0.25 | 0.00 | 0.00 | 0 |
+| endpoint | 0.85 | 0.95 | 0.75 | 0.90 | 0 |
 
 - **temperature** (failures #1, #3): `temp_mode`, `temp_min_f`, `temp_max_f`, `setpoint_f` all equal the golden; all or nothing.
-- **silent_gaps** (failure #2): every blank required field has a customer question for it. Four goldens whose right answer isn’t one new order (two shipments, a tender, two updates) pass by rule, labelled not_one_order.
-- **needs_human** (failure #5): exact match. Chance floor 0.63 (12 of 19 goldens are false). The endpoint escalated 4 of the 7 that needed a person and wrongly escalated 1 of 12.
+- **silent_gaps** (failure #2): every blank required field has a customer question for it. Five goldens whose right answer isn’t one new order (two shipments, a tender, two updates, an order already entered) pass by rule, labelled not_one_order.
+- **needs_human** (failure #5): exact match. Chance floor 0.60 (12 of 20 are false). The endpoint escalated 4 of the 8 that needed a person and wrongly escalated 1 of 12.
 - **empty** (`{}`) is a third baseline: valid JSON that's wrong. It caught a first version of the temperature scorer that passed everything.
-- **The one endpoint miss** Endpoint misses: all 6 real-failure goldens (1 temperature, 1 silent gap, 4 escalation), plus chilled beef’s temperature. Two old failures (trace 23’s temperature, trace 38’s minimum temperature) passed this run; one run, so not yet called fixed.
+- **Endpoint misses:** every real-failure golden (lines 14–20) failed at least one scorer: 2 temperature (15, 18),
+  1 silent gap (16), 5 escalation (14, 15, 17, 19, 20), plus chilled beef's temperature (13). Two old failures
+  (trace 23's temperature, trace 38's minimum temperature) passed again, so two runs agree. Line 15's temperature
+  ("frozen 0°F or less") failed for the first time: run-to-run variation, or a gap in the rules for "X or less".
 
 ## Step 3
 
-**Update judge (failure #4), `openai/gpt-6.1-sol`:** oracle 1.00; answer-42 0.00, echo 0.00, empty 0.00, on 19 goldens. Separation 1.00.
+**Update judge (failure #4), `openai/gpt-6.1-sol`:** oracle 1.00; answer-42 0.00, echo 0.00, empty 0.00, on 20 goldens (re-checked after adding golden 20). Separation 1.00.
 A first rubric scored `{}` at 0.89, because a non-update "matched" anything that didn't say update. Fixed by defining what a draft is.
 In the full run the judge caught both update goldens the endpoint drafted as new orders (lines 15, 17), with no false alarms.
 
@@ -781,5 +784,14 @@ chance floor 0.85. It caught all 3 updates and neither "please update your conta
 Limits: only 3 positive cases, and the rubric's definition came from 2 of them (traces 19 and 23).
 
 **Used:** separation 1.00 / agreement 1.00 on 20, so used as the `update_judge` column. Not the headline: too few positives.
+
+**Broad "approve unchanged" judge (not used):** a second judge asked the whole pass rule, "could ops approve this
+draft unchanged?", on the same model. Oracle 0.00 with a short rule list, and 0.37 with the endpoint's full rules
+(`INTAKE_RULES`) plus the rules ops decided this week, against a bar of 0.8, so not used. It demanded fields the
+contract doesn't have (commodity, accessorials, time windows) and applied the rules differently from the goldens.
+"Approve unchanged" depends on the whole contract, and a judge can't apply that reliably. The narrow update judge
+and the three functions score what can be scored. Its complaints still helped: they found two goldens whose threads
+now end with the broker confirming the order is already entered (fixed: goldens 1 and 2 trimmed, golden 20 added),
+and an inconsistent pickup-date rule (fixed).
 
 ## Bring it to work

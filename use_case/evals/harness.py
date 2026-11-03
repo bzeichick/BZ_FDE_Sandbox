@@ -125,3 +125,51 @@ Draft: needs_human true, needs_human_reason "Update to an existing order."
 No earlier order is named and nothing is asked to change, so this is a repeat order, not an update.
 
 Reply with JSON only: {{"score": 0 or 1, "why": "<one sentence>"}}"""
+
+APPROVE_RUBRIC = """You are an operations reviewer at a refrigerated freight broker, checking one draft order
+produced from one customer email. You can only see the email and the draft, not the TMS.
+
+Question: Could ops approve this draft and let it be entered into the TMS, changing nothing?
+
+Email:
+{input}
+
+Draft:
+{actual}
+
+The draft PASSES (score 1) only if ALL of these are true:
+1. Every filled field is correct for what the email says: nothing wrong, nothing invented.
+2. Nothing the email states is missing from the draft's fields. Judge only the fields the draft has;
+   details with no field in the draft (commodity, accessorials, contacts, time windows, carrier,
+   handling instructions) do not count.
+3. Every field needed before booking that the email doesn't give is left empty AND either asked about
+   in questions or covered by a flag.
+4. needs_human is true exactly when a person must act (an update to an existing order, a tender,
+   several shipments in one email, a missing or unclear pickup), and false otherwise.
+Open questions to the customer do not make a draft fail.
+
+The rules the draft must follow (the same rules the agent was given):
+<<INTAKE_RULES>>
+
+Additional rules decided by operations (these override the rules above where they differ):
+- A refrigerated setpoint at or below freezing (e.g. "chilled @ 32"): range 33 to 38 F, the customer's
+  number kept as the setpoint, and a confirmation suggesting 33-38 back to the customer.
+- "Frozen 0" or "frozen 0 F or less": the range is the frozen standard -10 to 0 with TEMP_STANDARD_ASSUMED;
+  a single stated number is the setpoint, "or less" is a limit (no setpoint).
+- needs_human is true when the email updates an existing order, is a load-board tender rather than
+  an order, or carries several shipments that cannot be one load. Two POs that ship together as one load
+  are one order (needs_human false). A missing detail the customer can supply is a question, not a
+  reason for needs_human.
+- A pickup date printed on the shipper's own document, with no request to schedule the pickup,
+  is a firm pickup_date.
+
+Score 0 if ANY condition fails, or if the text is not a draft at all (a draft must contain
+a needs_human field set to true or false; empty JSON ({{}}) or an email is not a draft).
+
+Example of a 1: an email gives pickup, delivery, 4 pallets, 360 cases, 7,200 lb, frozen -10, no rate.
+Draft: all of those filled exactly, setpoint -10 stated, range -10 to 0, rate empty with RATE_LOOKUP_NEEDED.
+
+Example of a 0: the same email, but the draft says 3 pallets, or invents a rate, or leaves the
+destination zip empty without asking.
+
+Reply with JSON only: {{"score": 0 or 1, "why": "<one sentence naming the first condition that failed, or 'all pass'>"}}"""

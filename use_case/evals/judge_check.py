@@ -1,6 +1,7 @@
 """Step 3: check the update judge before trusting it. Plumbing; the rubric is UPDATE_RUBRIC in harness.py.
 
-  uv run python use_case/evals/judge_check.py
+  uv run python use_case/evals/judge_check.py                    # the update judge (UPDATE_RUBRIC)
+  uv run python use_case/evals/judge_check.py --rubric approve   # the broad judge (APPROVE_RUBRIC)
 
 Separation: the judge scores every golden answer (the oracle, should be ~1.0) and three known-bad
 outputs (the course's "The answer is 42.", the raw email = echo, and {} = empty; all should be ~0.0).
@@ -21,7 +22,35 @@ load_dotenv(ROOT / ".env")
 
 from helpers.config import from_env
 from helpers.judge import Judge, parse_json
-from harness import UPDATE_RUBRIC
+import harness
+
+RUBRICS = {"update": "UPDATE_RUBRIC", "approve": "APPROVE_RUBRIC"}
+
+
+def pick_rubric(argv: list[str]) -> tuple[str, str]:
+    """(name, rubric text) from --rubric NAME; defaults to the update judge."""
+    name = argv[argv.index("--rubric") + 1] if "--rubric" in argv else "update"
+    if name not in RUBRICS:
+        sys.exit(f"--rubric must be one of {', '.join(RUBRICS)}")
+    if not hasattr(harness, RUBRICS[name]):
+        sys.exit(f"{RUBRICS[name]} isn't in use_case/evals/harness.py yet")
+    rubric = getattr(harness, RUBRICS[name])
+    if "<<INTAKE_RULES>>" in rubric:
+        rubric = rubric.replace("<<INTAKE_RULES>>", intake_rules())
+    return name, rubric
+
+
+def intake_rules() -> str:
+    """The endpoint's own rules (schema.INTAKE_RULES, from 'Rules:' on), so the judge applies the same contract
+    the agent was given. Braces escaped, because the rubric is a format template."""
+    sys.path.insert(0, str(ROOT / "01_Product_Engineering" / "challenge"))
+    import schema
+    rules = schema.INTAKE_RULES
+    rules = rules[rules.index("Rules:"):] if "Rules:" in rules else rules
+    return rules.replace("{", "{{").replace("}", "}}")
+
+
+UPDATE_RUBRIC = harness.UPDATE_RUBRIC          # kept so run.py's import still works
 
 JUDGE_MODEL = os.getenv("JUDGE_MODEL", "gpt-4.1-mini")
 CASES = [json.loads(line) for line in open(HERE / "golden.jsonl")]
@@ -43,7 +72,8 @@ def ask(judge: Judge, actual: str, case: dict) -> tuple[float, str]:
 
 
 def main() -> None:
-    judge = Judge(from_env(ROOT), rubric=UPDATE_RUBRIC, model=JUDGE_MODEL)
+    name, rubric = pick_rubric(sys.argv)
+    judge = Judge(from_env(ROOT), rubric=rubric, model=JUDGE_MODEL)
     jcases = [judge_case(c) for c in CASES]
     systems = {
         "oracle": lambda jc: jc["output"],
@@ -51,7 +81,7 @@ def main() -> None:
         "echo": lambda jc: jc["input"],
         "empty": lambda jc: "{}",
     }
-    print(f"judge model: {JUDGE_MODEL}   endpoint model: {os.getenv('LLM_MODEL')}   cases: {len(CASES)}\n")
+    print(f"rubric: {name}   judge model: {JUDGE_MODEL}   endpoint model: {os.getenv('LLM_MODEL')}   cases: {len(CASES)}\n")
     means, oracle_misses = {}, []
     for name, system in systems.items():
         scores = []

@@ -308,11 +308,14 @@ Rules:
 - Dates are YYYY-MM-DD. Resolve relative dates ("Friday") from received_date.
 - Pickup: a date the customer gives for when freight is ready, or a pickup date they request, is
   ready_date (if several are offered, use the earliest; "ready as early as Friday" is a ready date).
-  The company picks up on its own scheduled runs, so pickup_date is only a firm date fixed by the
-  shipper's documents (a ship date) or a pickup that already happened. When there is no firm
-  pickup date, leave pickup_date empty and add flag PICKUP_TO_BE_SCHEDULED. If the order gives no
-  ready date and no pickup date at all, also ask when it will be ready, with field "ready_date"
-  (ask for a ready date, never "when should we pick up").
+  The company picks up on its own scheduled runs for each lane, so a requested date is a request,
+  not a commitment. pickup_date is set only when the pickup already happened, when the thread shows
+  the company has already scheduled it ("our truck picks up 7/25 at 11am"), or when the customer
+  explicitly says it must be that date ("must pick up Monday", "no later than"). A date printed on
+  the customer's or shipper's own form is still a request. When there is no firm pickup date, leave
+  pickup_date empty and add flag PICKUP_TO_BE_SCHEDULED. If the order gives no ready date and no
+  pickup date at all, also ask when it will be ready, with field "ready_date" (ask for a ready date,
+  never "when should we pick up").
 - Delivery: a specific date is delivery_date. A deadline ("before or on 10/7") is delivery_date.
   A vague window ("week of 10/5") goes in delivery_window as written, delivery_date stays empty,
   and add flag DELIVERY_TO_BE_SCHEDULED. No delivery date at all: leave both empty and add
