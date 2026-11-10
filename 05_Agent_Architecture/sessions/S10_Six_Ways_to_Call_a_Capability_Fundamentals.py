@@ -138,6 +138,8 @@ def _(mo):
     from helpers import nb, ui
 
     CFG = nb.bootstrap()
+    import litellm as _litellm
+    _litellm.drop_params = True   # Opus 5.5 rejects forced tool use; downgrade "required" to "auto"
     print(f"✅ {CFG}")
     return CFG, Path, sys, ui
 
@@ -447,7 +449,7 @@ def _(mo):
     arguments that do not parse — and which of the five rows in the table
     above would a user of your app meet first?
 
-    **Answer:**
+    **Answer:** My history endpoint’s loop (`run_agent` in `retrieval.py`) wraps the JSON parse and the `funcs[name](**args)` call in one `except Exception`. So an unknown tool name comes back to the model as `(tool error: KeyError: 'lookup_team')`, and arguments that don’t parse come back as `(tool error: JSONDecodeError: …)`. The request never dies, but the model isn’t told which tools do exist. A user would meet the oversized-result row first: `read_page` and `read_thread` cut results at 12,000 characters without saying so. In my saved runs, 88 of 964 such calls hit that limit, and none of 2,272 tool calls produced an error. Because `read_thread` returns messages oldest first, the cut drops the newest messages, which is where a customer’s latest update lives.
 
     ---
     ## Way 2 — A skill
@@ -750,7 +752,7 @@ def _(mo):
     category — and if the honest answer is nobody, what does an MCP server buy
     you that a tool does not?
 
-    **Answer:**
+    **Answer:** Nobody outside my codebase in the next year. The production app will have three callers of the same capabilities: the scheduled intake job, an order checker where ops approves a draft before it’s pushed to the TMS, and a chatbot over past order emails. I write all three, and they run on one server. An MCP server would let all three share one tool definition and one place to count calls and cap results, but a shared module gives me that without a process boundary. Since one of the tools writes to the TMS, I’d rather keep it behind my own approval step than make it discoverable.
 
     ---
     ## Way 5 — Code Mode
@@ -787,6 +789,7 @@ def _(CFG, completion, who_is_oncall):
         "str": str, "int": int, "float": float, "bool": bool, "print": print,
         "sum": sum, "any": any, "all": all, "range": range, "enumerate": enumerate,
         "zip": zip, "min": min, "max": max, "join": str.join,
+        "isinstance": isinstance, "tuple": tuple, "Exception": Exception,
     }
 
     def call_with_code_mode(question: str, fn=who_is_oncall, meter=None) -> dict:
@@ -1070,6 +1073,14 @@ def _(
     return (RESULTS,)
 
 
+@app.cell
+def _(QUESTION_4, call_with_code_mode):
+    _r = call_with_code_mode(QUESTION_4)
+    print(_r.get("error"))
+    print(_r["code"])
+    return
+
+
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
@@ -1236,7 +1247,7 @@ def _(mo):
     how many calls does one request need? Put those two numbers on the slope
     above and say which architecture's token bill you are actually paying.
 
-    **Answer:**
+    **Answer:** My two endpoints sit at opposite ends of the slope. The order endpoint is one model call (two only if the reply fails the schema) with no tool calls, carrying about 15.5 KB of fixed rules and schema plus the email thread (median 1 KB, 90th percentile 5.5 KB, max 16.5 KB). That’s roughly 4–8K input tokens and 8 seconds per order, so its bill grows with thread size, not with calls. The history lookup returns about 2.8 KB per call on average (median 0.8 KB, capped at 12 KB) over a median of 20 calls, about 51 KB of evidence per question, and because every turn resends the conversation it bills about 250K tokens and 65 seconds: the tool-loop bill, past the right edge of the sweep.
 
     ---
     ## Task 9 — The comparison
@@ -1325,7 +1336,8 @@ def _(mo):
     condition — a second client, a response size, a call count, a review
     passing — under which you would switch to it?
 
-    **Answer:**
+    **Answer:** Questions 1 and 2 are “no”: my history corpus is local files, not an HTTP API, and no client outside my codebase needs to find it. Question 3 is the first “yes”: one history question takes a median of 20 calls and about 51 KB of evidence, which the tool loop bills as about 250K tokens, so Code Mode is the alternative worth building (my order endpoint is one call with no tools, so it answers “no” all the way down and stays a fixed pipeline). I’d switch when Code Mode, run in a real sandbox rather than SAFE_BUILTINS, matches my pass rate on the 10 labelled history questions, still quoting the line it cites and picking the latest of several updates, at less than half the tokens.
+    However, bringing in coldlade production changes the answer: Question 1 is the first “yes”: the reference lookup that both my order router and history chatbot depend on already exists as the TMS’s own web-service API, so UTCP, describing that API instead of building a forwarding service, is the alternative worth building, for the read-only lookups only. I’d switch when the TMS enables read-only shipment lookups for my server’s user, replacing the nightly export index, with the password kept only on the one server the TMS accepts calls from, since the TMS can’t limit a user by API type. Question 3 still applies to the history chatbot (Code Mode, on the condition above), and pushing an order into the TMS stays a call my own code makes after ops approves it, never something the model can call.
 
     ---
     # Conclusion
