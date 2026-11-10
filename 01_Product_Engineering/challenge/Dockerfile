@@ -20,7 +20,12 @@ RUN uv export --frozen --no-dev --no-emit-project -o requirements.txt \
  && uv pip install --system --no-cache -r requirements.txt
 
 # schema.py holds the contract and solve(); app.py imports it, so the image needs it too.
-COPY llm.py app.py schema.py corpus.py retrieval.py wiki.py ./
+# TC5: both implementations, the TMS client, and the stand-in TMS the image uses (no TMS login ships in it).
+# tools.py and tms_fixture.json are copies of helpers/tools.py and use_case/evals/tms_fixture.json,
+# because the build only sees this folder.
+COPY llm.py app.py schema.py corpus.py retrieval.py wiki.py \
+     existing_loads.py tms_client.py tms_mock.py utcp_tms.py tools.py \
+     tms_utcp_manifest.json tms_fixture.json ./
 COPY corpus/ ./corpus/
 COPY frontend/ ./frontend/
 

@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "about": "The broker's TMS lookup service, described rather than rebuilt (TC5 implementation 2). One HTTPS POST endpoint; the body is form-encoded (userid, password, request) and `request` is an XML service-request whose <data> is the tool's data template. Host, path and credentials come from the caller's environment: the client holds the credential.",
+  "tools": [
+    {
+      "name": "find_shipment_by_reference",
+      "description": "Find shipments already in the TMS whose reference number (PO, SO, BOL, load, confirmation or appointment number) exactly equals the value. Returns a list of shipment oids; an empty list means no shipment carries that reference. Read one with get_shipment.",
+      "inputs": {"reference": {"type": "string", "required": true, "description": "One reference number, exactly as written in the order"}},
+      "call": {"protocol": "http", "method": "POST", "url": "https://{TMS_HOST}{TMS_PATH}",
+               "content_type": "application/x-www-form-urlencoded",
+               "auth": {"form_fields": {"userid": "{TMS_USER}", "password": "{TMS_PASS}"}},
+               "service_id": "OidLookup",
+               "data": "<objectType>shipment</objectType><searchBy>reference</searchBy><searchValue>{reference}</searchValue>",
+               "response": "XML service-response; <data> holds the oids (base64 unless the server is set otherwise)"}
+    },
+    {
+      "name": "get_shipment",
+      "description": "Read one shipment already in the TMS: the whole record as XML (references, status, dates, shipper, consignee, temperature, weights, quantities, charges). About 10 KB.",
+      "inputs": {"oid": {"type": "string", "required": true, "description": "A shipment oid from find_shipment_by_reference"}},
+      "call": {"protocol": "http", "method": "POST", "url": "https://{TMS_HOST}{TMS_PATH}",
+               "content_type": "application/x-www-form-urlencoded",
+               "auth": {"form_fields": {"userid": "{TMS_USER}", "password": "{TMS_PASS}"}},
+               "service_id": "WebExtractShipment",
+               "data": "<oid>{oid}</oid>",
+               "response": "XML service-response; <data> holds the shipment record"}
+    }
+  ],
+  "notes": [
+    "Exact match only: a reference written with a prefix (P + 3-digit facility + PO) is not found as written.",
+    "Callers are allowed by IPv4 address; calls must come from an allowed address.",
+    "A reply can say SUCCESS while an import failed; read-only lookups are not affected."
+  ]
+}

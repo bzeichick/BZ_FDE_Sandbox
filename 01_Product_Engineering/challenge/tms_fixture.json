@@ -1,0 +1,33 @@
+{
+  "_about": "The TMS as each golden email assumes it: one existing load per golden that refers to a load already entered. Seeded into the TMS sandbox by seed_sandbox.py. Redacted: every ref starts ZZFDE and every Intake ID starts CL-FDE- (the production pipeline skips both). Golden 2 is the same order as golden 20 but stays on its old ref, because the sandbox is the TMS as of now, not as of each email.",
+  "loads": [
+    {"golden": 15, "intake_id": "CL-FDE-15-1",
+     "why": "PO updated: the load still has the OLD PO; the email's new PO isn't on it, so only the SO finds it",
+     "refs": [["Customer PO", "ZZFDE-15-PO0"], ["Pickup Reference Number", "ZZFDE-15-SO1"]],
+     "shipper": {"name": "LFS Harbor Warehouse", "street": "1420 Harbor Street", "city": "Los Angeles", "state": "CA", "zip": "90021"},
+     "consignee": {"name": "Lakeview ISD Food Service Deliver Warehouse", "street": "300 Commerce Way", "city": "Garland", "state": "TX", "zip": "75040"},
+     "pickup": "2025-07-18", "delivery": "2025-07-23", "temp_min_f": -10, "temp_max_f": 0,
+     "pallets": 6, "cases": 480, "weight_lb": 8640, "description": "Frozen breakfast sandwiches"},
+    {"golden": 17, "intake_id": "CL-FDE-17-1",
+     "why": "PO quantity update: the load has the same PO as the email",
+     "refs": [["Customer PO", "ZZFDE-17-PO1"]],
+     "shipper": {"name": "Brightloaf Kitchen LLC", "street": "880 South Elm Street", "city": "Modesto", "state": "CA", "zip": "95357"},
+     "consignee": {"name": "MARINO & SONS", "street": "410 N VALLEY PARK BLVD.", "city": "CITY OF INDUSTRY", "state": "CA", "zip": "91746"},
+     "pickup": "2026-06-23", "delivery": "2026-06-25", "temp_min_f": -10, "temp_max_f": 0,
+     "pallets": 3, "cases": 400, "weight_lb": 5000, "description": "Frozen baked goods (before the update to 2 pallets / 270 cases)"},
+    {"golden": 20, "intake_id": "CL-FDE-20-1",
+     "why": "Already entered: the broker's own reply in the thread says so; the load has the email's PO",
+     "refs": [["Customer PO", "ZZFDE-20-PO1"]],
+     "shipper": {"name": "Sunridge Foods", "street": "2200 Industrial Pkwy", "city": "Ontario", "state": "CA", "zip": "91761"},
+     "consignee": {"name": "Northstar Co-Pack TX", "street": "800 Commerce Blvd", "city": "Mesquite", "state": "TX", "zip": "75149"},
+     "pickup": "2026-10-21", "delivery": "2026-10-24", "temp_min_f": null, "temp_max_f": null,
+     "pallets": 5, "cases": 412, "weight_lb": 9400, "description": "Packaged food"},
+    {"golden": 21, "intake_id": "CL-FDE-21-2",
+     "why": "Appointment for an existing load: the email writes the PO as P003 + PO, so only a partial match finds it. CL-FDE-21-2 because loads are create-only (the TMS rejects updates without the bill-to); CL-FDE-21-1 is an earlier copy with a dashed ref, unused",
+     "refs": [["Customer PO", "ZZFDE21PO1"]],
+     "shipper": {"name": "FDE Test Shipper", "street": "100 Test Way", "city": "Dallas", "state": "TX", "zip": "75042"},
+     "consignee": {"name": "NFS Northgate Jacksonville, Inc.", "street": "1 Test Plaza", "city": "Jacksonville", "state": "FL", "zip": "32254"},
+     "pickup": "2026-10-26", "delivery": "2026-10-28", "temp_min_f": -10, "temp_max_f": 0,
+     "pallets": 10, "cases": 800, "weight_lb": 12000, "description": "Frozen food"}
+  ]
+}

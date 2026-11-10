@@ -638,3 +638,110 @@ challenge, which has the full detail.
 
 Everything after this week assumes you chose your architecture with a
 measurement and can say what would change it.
+
+---
+
+## Step 2 — the second way, and the closest reject
+
+**Capability:** `find_existing_loads(refs)`: the loads already in the TMS that match an email's PO, pickup and load refs.
+
+**Implementation 1 (baseline): a pipeline.** Code looks up the refs before the draft, and any match goes into the prompt. It looks them up again after the draft, and a match always sends the order to a person as an update. One model call.
+
+**Implementation 2 (the second way): UTCP.** A manifest describes the TMS's existing lookup web service (find a shipment by reference, then extract it), and the model calls it as a tool. The same after-check runs on both, so the comparison measures one thing: whether the model is given the lookup or fetches it itself.
+
+**Why UTCP:** ordering question 1. The capability already exists as an HTTP API: the lookup works in the broker's TMS sandbox and is used there every day. Describe it, don't rebuild it. It's the first question, so none above it were "no".
+
+- *What it can prove:* the description is right (find a shipment by PO and read its fields back); the update path works end to end; how big one lookup reply really is (Step 5); and switching to production becomes a config change, not new code.
+- *What it can't prove:* routing on real traffic, because the sandbox holds only test orders and none that ops entered. And it can't prove anything about the TMS's REST API, because nobody knows how its tokens are issued, so this uses the XML lookups proven in the sandbox.
+- *Admitted:* the API is XML over one POST endpoint with no OpenAPI document. So the manifest is hand-written, and a small adapter builds the XML envelope. That part is partly rebuilding, not purely describing.
+
+**Closest reject: Code Mode.** A 5-PO email means 5 full shipment records, and Code Mode would keep them out of the model's context. But intake's lookups already run in code, not in a model loop, and there's no sandbox here for untrusted code. Switch only if intake becomes an agent that chooses its own lookups and a request needs more than one record read: each read is about 4,500 tokens, re-sent every later round (measured in Step 5; see the Step 6 row).
+
+**MCP:** there's no outside client. Staff's future assistant would be my own app built on the history page, which can call the lookup directly.
+
+## Step 3 — build
+
+### Setup: a TMS sandbox the goldens can look up
+
+The capability under test looks up loads already in the broker's TMS, so the goldens need real loads to find. `use_case/evals/tms_fixture.json` holds one redacted load for each golden that refers to a load already entered (15, 17, 20, 21). `use_case/evals/seed_sandbox.py` creates them in the TMS sandbox.
+
+- **Fenced off from production.** Every ref starts `ZZFDE` and every Intake ID starts `CL-FDE-`, and the seeding script refuses anything else, or any enterprise that isn't a sandbox. The broker's production pipeline already ignores sandbox-owned loads in both its routing and its daily sandbox-vs-production check, and now also skips both markers.
+- **Each load is set up to test one thing.** Golden 15's load carries the *old* PO, so only the SO finds it. Golden 21's carries the PO plainly, while the email writes it as `P003` + PO.
+- **Known limit:** the sandbox is the TMS *as of now*, not as of each email. Goldens 2 and 20 are the same order (before and after it was entered), so golden 2 keeps a different ref. Otherwise its lookup would find the load entered later. As-of-aware lookups are a production need, left for later weeks.
+
+### What the real API taught me
+
+1. **Callers are allowed by IPv4 address.** My laptop called over IPv6 and was refused. Forced to IPv4, its home address wasn't on the list either. Development calls now go through an SSH tunnel from the broker's server, whose address is allowed. In production these calls run from that server anyway. *Effect on measurement:* the UTCP side's latency includes the tunnel hop; tokens don't.
+2. **Lookup is an exact string match.** A dock system writes PO `24645400` as `P00324645400` (P + facility 003 + PO), so the exact lookup misses it. The fix is a rule table (data, not code) that also tries the PO inside a known pattern: one extra lookup, and no guessing at short tails that could match another load.
+3. **"No match" and "the lookup failed" must never look the same.** An empty reply means no load matches. A failure raises an error. If a failure read as "no match," the order would be treated as new, which is the duplicate this work exists to prevent.
+4. **One full shipment record is 10,216 bytes** (measured), roughly 3,000 tokens. That's 4× the top of Session 10's payload sweep, before Step 5 even starts.
+5. **"Success" doesn't mean success.** The import service answers SUCCESS even when the import failed; the failure is inside the reply's logs. The client checks there.
+6. **Writes are harder than reads.** Every import needs a payment block, but an update can't change the bill-to the TMS set at creation, so it rejects the whole update. Anything that writes to this TMS has to remember each load's bill-to. The seeding script is therefore create-only. This doesn't affect this week's lookups, but it matters for the eventual "agent enters the order" goal.
+7. **A shared TMS means other loads can match.** Golden 3's PO matched another team's test load in the same sandbox, and the pipeline correctly escalated a quote as an update. The eval now passes in a `lookup` that only sees the course's own loads, so the sandbox behaves like the TMS as of these emails. In production the same collision needs an "as of this email" check.
+8. **"TMS failure" has to include "TMS unreachable."** A dead tunnel raised Python's own network error, not the client's `TMSError`, so it would have crashed intake instead of sending the order to a person. The client now turns every network failure into a `TMSError`.
+9. **The shared after-check has to be told exactly what was looked up.** On the UTCP side, assuming the ref rules had been applied to the model's own lookups would have skipped `ZZFDE21PO1`. That would have let a duplicate through if the model had called the order new.
+
+### The adapter (admitted, as promised in Step 2)
+
+`01_Product_Engineering/challenge/tms_client.py` is the small piece that builds the TMS's XML. One function, `call()`, touches the network. `lookup`, `extract` and `import_order` only build the XML they send. `summarize()` trims a 10 KB record down to the ~300 bytes the checks use (shipment ID, refs, status, dates, zips, temperature, pallets, weight). Every request and reply is saved locally, which is where Step 5's byte counts come from.
+
+### Built
+
+- **The capability:** `find_existing_loads(refs, lookup, extract)` in `existing_loads.py`. `lookup` and `extract` are passed in, so the real TMS client, the eval's fixture filter and Step 4's counter all plug in the same way. It doesn't catch TMS errors, because an empty list means "no match" and a failed lookup must never look like that.
+- **Implementation 1, the pipeline** (`solve_with_lookup`): a before-check on the email's labeled refs, one model call with any matches as a 166-token block, and an after-check on the draft's other refs. Any match forces a person; any TMS failure also goes to a person.
+- **Implementation 2, UTCP** (`utcp_tms.py` + `tms_utcp_manifest.json`): the manifest describes the TMS's two real operations, and the model calls them as tools. It runs the same after-check, and a TMS failure during the loop also goes to a person, whatever the model concluded.
+- **The dispatcher** is the course's `Toolbox`, set to pass full records (its 4,000-character default would have hidden 60% of one). What the model gets back on a mistake:
+  - unknown tool: `{"error": "unknown tool 'lookup_load'; available: find_shipment_by_reference, get_shipment"}`
+  - malformed arguments: `{"error": "arguments were not valid JSON: '{bad json'. Send a JSON object."}`
+
+## Step 4 — both implementations measured, at demo scale
+
+The same three goldens through both implementations, one run each, measured by `use_case/evals/measure_ways.py`. Model calls and tokens come from a LiteLLM callback, the same counter for both sides. Capability calls come from a counting wrapper around `lookup` and `extract`, passed in like everything else (nothing patched). Seconds are end to end, including the TMS calls through the development tunnel.
+
+| Golden | Request | Way | Model calls | Capability calls | Seconds | Tokens |
+|---|---|---|---|---|---|---|
+| 2 | one ref, no load | pipeline | 1 | 1 (1 lookup) | 6.1 | 7,116 |
+| 2 | | UTCP | 2 | 1 (1 lookup) | 7.2 | 15,162 |
+| 15 | three refs, one load | pipeline | 1 | 4 (3 lookups + 1 extract) | 15.3 | 9,731 |
+| 15 | | UTCP | 3 | 4 (3 lookups + 1 extract) | 12.9 | 32,662 |
+| 17 | one ref, one load | pipeline | 1 | 2 (1 lookup + 1 extract) | 12.2 | 8,618 |
+| 17 | | UTCP | 3 | 2 (1 lookup + 1 extract) | 12.1 | 29,626 |
+
+- **Capability calls are identical on both sides.** The TMS did the same work whichever way the model reached it.
+- **Model calls and tokens are what differ:** the tool loop costs 2.1–3.4× the tokens for the same work. Even with nothing to find (golden 2) it pays a second model call, because each round re-sends the whole prompt.
+- **Latency is even** at this scale (6–15 s on both sides). It's dominated by how much the model writes and by the TMS calls. Tokens separate the two, not seconds.
+- **Parallel tool calls:** Opus 5.5 emits them. Golden 15's first UTCP turn had `len(msg.tool_calls)` = 3 (all three lookups at once), so 4 capability calls cost 3 model calls, not 5. The tool loop's extra cost is re-sending the conversation each round, not one round trip per lookup.
+
+**The same comparison on all 21 goldens** (`run.py --pipeline` / `--utcp --compare`): both miss 1 of 9 escalations (golden 14, a load-board tender that no ref check can catch), down from 4 for the draft alone, and both wrongly escalate 1 of 12 (golden 19). The pipeline used 21 model calls and about 164K tokens; UTCP used 46 model calls and about 390K tokens (**2.4×**) for the same accuracy.
+
+## Step 5 — measured again at real response size
+
+The UTCP side reads what the TMS really returns: the whole shipment record. The pipeline trims it in code to a ~300-byte summary.
+
+| Real-size row (all *measured*) | |
+|---|---|
+| Bytes per response (one full record) | 8,629–8,689 (course loads); 10,216 (another test load in the same sandbox) |
+| Into the model's context per record read (UTCP) | ~4,500 tokens (golden 15: input 9,066 → 13,640 between rounds 2 and 3) |
+| Into the prompt per matched load (pipeline) | 166 tokens (the summary line; identical on all four matched goldens) |
+| Capability calls per request | 1–8 (1–4 lookups + 0–4 extracts) |
+| Tokens per order, pipeline | 7,116–9,731 (about 7,800 on average across 21 goldens) |
+| Tokens per order, UTCP | 15,162–32,662 (about 18,600 on average across 21 goldens) |
+
+**A 4-ref request**, a synthetic email naming four real sandbox loads (`use_case/evals/synthetic_4_refs.txt`):
+
+| Way | Model calls | Capability calls | Record bytes fetched | Seconds | Tokens | 1st-turn tool calls |
+|---|---|---|---|---|---|---|
+| pipeline | 1 | 8 (4 lookups + 4 extracts) | 34,286 | 10.9 | 7,433 | — |
+| UTCP | 2 | 4 (4 lookups) | 0 | 9.5 | 15,396 | 4 |
+
+**It overturned my Step 2 prediction.** I expected "5 POs means 5 full records in context." For a status question, the model looked up all four refs in one turn, saw they all existed, and escalated without reading any record. On goldens 15, 17 and 20 it did read the record, to work out what the email changed. **So the tool loop's cost depends on what the model decides to read, and that can't be promised in advance.** The pipeline did more TMS work here (8 calls, 34 KB fetched), but only about 660 tokens reached the model. It's cheaper in tokens, not automatically in TMS calls.
+
+*Estimated, not measured:* if the model reads every record on a 4-ref email, that adds roughly 18,000 tokens to every round after the records are read.
+
+**At 10× today's volume** (about 800 emails a day, roughly 350 about a load already in the TMS), tokens rise from about 0.6M to 6.2M a day on the pipeline and from about 1.5M to 14.9M on UTCP, and TMS calls to as many as 6,400 a day (measured averages × volume). This treats each email as one order, since the token averages are per order, and the goldens aren't the real mix of mail.
+
+**Still runs in Docker.** Both implementations are endpoints in the image (`/draft_shipment_checked`, `/draft_shipment_utcp`). Inside the image they use a stand-in TMS built from `tms_fixture.json`: no TMS login, no tunnel, no route to the real TMS. Only the model settings are passed in, from a separate env file. Two things the image caught that local runs didn't: code that assumed the repo's folder layout (fixed), and files only their owner could read, refused because the app runs as a non-root user.
+
+## Step 6 — the decision
+
+The architecture row is in [`use_case/decisions.md`](../../use_case/decisions.md) (Week 5): **the pipeline for intake**, with UTCP rejected after building and measuring it (same accuracy, 2.2× the model calls, 2.4× the tokens). Switch conditions: MCP when an assistant I didn't build needs the lookup; UTCP or a plain tool if more than 15% of "existing order" emails can't be matched by code after the index is widened (24% today, before widening); Code Mode only if intake becomes an agent and a request needs more than one record read. The Step 1 open question (partial loads) is answered there as still open, with what would close it.

@@ -1,0 +1,16 @@
+From: Dana Whitfield <dana@coastalprovisions.example>
+Sent: 2026-11-09T09:15:00
+Subject: Status on our open loads
+
+Hi team,
+
+Can you confirm where these stand? Our receiving dock needs updated ETAs.
+
+Order: ZZFDE-15-SO1 - Garland, TX
+PO# ZZFDE-17-PO1 - City of Industry, CA
+PO# ZZFDE-20-PO1 - Mesquite, TX
+PO# ZZFDE21PO1 - Jacksonville, FL
+
+Thanks,
+Dana Whitfield
+Coastal Provisions (synthetic test request, TC5 Step 5)

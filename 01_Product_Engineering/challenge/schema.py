@@ -129,7 +129,7 @@ class Response(BaseModel):
     # `default_factory=list` means "empty list if none were found".
     refs: list[str] = Field(
         default_factory=list,
-        description="Every customer reference number in the order (PO, SO, freight PO), as written.",
+        description="Every reference number in the order (PO, SO, freight PO, load, confirmation or appointment number), as written.",
     )
 
     # --- Where ----------------------------------------------------------------
@@ -304,7 +304,7 @@ Rules:
   (cases, bags, cartons...). Bags are never cases. Ask for a count (field "pieces") only when the order gives none.
 - Pallet spots: when the order gives floor positions separately from pallets (e.g. "60 PALLETS 30 SPOTS",
   "25 spots total"), put the pallet count in pallets and the spots in pallet_spots. Never put spots in pallets.
-- refs: every PO, SO and freight PO number in the order, as written, without labels.
+- refs: every PO, SO, freight PO, load, confirmation and appointment number in the order, as written, without labels.
 - Dates are YYYY-MM-DD. Resolve relative dates ("Friday") from received_date.
 - Pickup: a date the customer gives for when freight is ready, or a pickup date they request, is
   ready_date (if several are offered, use the earliest; "ready as early as Friday" is a ready date).
@@ -356,7 +356,7 @@ JSON schema:
 """
 
 
-def solve(request: Request) -> Response:
+def solve(request: Request, context: str = "") -> Response:
     """Read one customer order and return its shipment fields for a person to check.
 
     A fixed pipeline (see use_case/decisions.md): one model call, check the reply
@@ -364,7 +364,8 @@ def solve(request: Request) -> Response:
     person if it still doesn't. It never returns something that fails the contract.
     """
     system = INTAKE_RULES + json.dumps(Response.model_json_schema())
-    message = f"received_date: {request.received_date.isoformat()}\n\nORDER:\n{request.order_text}"
+    # context: extra text after the order (Week 5: loads already in the TMS). Empty = the Week 1-4 prompt, unchanged.
+    message = f"received_date: {request.received_date.isoformat()}\n\nORDER:\n{request.order_text}{context}"
 
     last_error = None
     for attempt in range(2):
