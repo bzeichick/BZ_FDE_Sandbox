@@ -8,6 +8,10 @@
   <p><strong>The refined demo, and an architecture you can defend with a second implementation you measured.</strong></p>
 </div>
 
+> **What changed after critique.** The TC4 room said the escalation score hid the misses (0.75 accuracy hid 4 of 9 orders missed), that duplicates should be checked in code against the TMS before the model's judgment, and that 20 cases can't be told apart from guessing. This week escalation is reported as misses and gated (any increase fails). A code check against loads already in the TMS, before and after one model call, cut misses from 4 of 9 to 1 of 9; the one left, a load-board tender, is shown in the demo on purpose. One real case from shadow intake was added (a PO rewritten by a dock system). Still open: partial loads. The refined demo went to the co-owner, who called the daily agent-vs-TMS email "the first thing to look at," and named the worst case: wrong information sending the team on "a wild goose chase." My write-up for this challenge starts at [Step 2](#step-2--the-second-way-and-the-closest-reject).
+
+**Loom (five minutes or less):** [TC5 demo](https://www.loom.com/share/e32d28641d014b59b45f4e1ac75546b1)
+
 ---
 
 ## Overview
@@ -745,3 +749,30 @@ The UTCP side reads what the TMS really returns: the whole shipment record. The 
 ## Step 6 — the decision
 
 The architecture row is in [`use_case/decisions.md`](../../use_case/decisions.md) (Week 5): **the pipeline for intake**, with UTCP rejected after building and measuring it (same accuracy, 2.2× the model calls, 2.4× the tokens). Switch conditions: MCP when an assistant I didn't build needs the lookup; UTCP or a plain tool if more than 15% of "existing order" emails can't be matched by code after the index is widened (24% today, before widening); Code Mode only if intake becomes an agent and a request needs more than one record read. The Step 1 open question (partial loads) is answered there as still open, with what would close it.
+
+## Bring it to work
+
+**The capability:** order intake at the freight broker. The agent reads order emails from customers and the broker's own staff, creates and updates orders in a sandbox copy of the TMS, and checks the TMS for a load already entered under the email's PO, SO or load number before treating anything as new. A daily email compares its orders with what ops entered in production.
+
+- **Data:** one TMS shipment record is 8.6–10.2 KB, about 4,500 tokens if a model reads it. An email carries 1–4 refs, so 1–8 TMS calls. About 80 business emails a day reach the agent (not all are orders), and about 44% of them are about a load already in the TMS.
+- **Model or endpoint:** the capability already exists: the TMS's own web service. Today it's called on the production instance, against a sandbox enterprise. The broker's co-owners own the vendor relationship. Production needs a dedicated web-service user, held only on the broker's server: the TMS only accepts calls from listed IP addresses. The vendor can't limit a user to read-only services, so read-only is enforced on my side (the code only calls the lookup and extract services), and the password stays in that one place.
+- **Access or approval:** approved in the 11/10 review: a new intake address, set up with the broker's IT contact; in production, customers' and staff's order emails are copied to it. Sending customer email to the AI provider: a verbal OK from the co-owner, with written sign-off still to get. Still to ask: the production TMS user, IP-restricted to the server.
+
+**Measured** (Step 5): about 7,800 tokens per order with the lookup done in code, against about 18,600 when the model calls the TMS itself.
+
+## Submission (TC5)
+
+- **Loom (five minutes or less):** [TC5 demo](https://www.loom.com/share/e32d28641d014b59b45f4e1ac75546b1)
+- **Branch:** `tc5`. Production data stays local (gitignored); goldens and the TMS fixture are redacted.
+
+| Deliverable | Where | In one line |
+| --- | --- | --- |
+| The room's questions, marked (Step 1) | [decisions.md](../../use_case/decisions.md), "Week 5 — what the room asked" | Two fair (report and gate misses; check the TMS in code), one open (partial loads) |
+| The second way, and why (Step 2) | [Step 2](#step-2--the-second-way-and-the-closest-reject) | UTCP, picked by ordering question 1; closest idea not built: Code Mode; MCP: no outside client |
+| Both implementations, running; dispatcher failure messages (Step 3) | [Step 3](#step-3--build) | The pipeline (`existing_loads.py`) and UTCP (`utcp_tms.py` + manifest); unknown tools and bad arguments come back as messages |
+| Demo-scale measurement, parallel tool calls (Step 4) | [Step 4](#step-4--both-implementations-measured-at-demo-scale) | Capability calls identical; UTCP 2.1–3.4× the tokens; 3 tool calls in one turn |
+| Real-size row, 10× volume (Step 5) | [Step 5](#step-5--measured-again-at-real-response-size) | One TMS record 8.6–10.2 KB (~4,500 tokens); pipeline ~7,800 vs UTCP ~18,600 tokens per order |
+| Architecture row, switch conditions (Step 6) | [decisions.md](../../use_case/decisions.md) (Week 5) · [Step 6](#step-6--the-decision) | The pipeline; UTCP rejected after building it; switch at 15% unmatched updates, more than 1 record read, or an outside client |
+| Still runs in Docker | [Step 5](#step-5--measured-again-at-real-response-size) (last paragraph) · [Dockerfile](../../01_Product_Engineering/challenge/Dockerfile) | Both endpoints in the image, against a stand-in TMS; no TMS login inside |
+| Refined demo shown to a stakeholder (Step 7) | [stakeholders.md](../../use_case/stakeholders.md) (Week 5) · the paragraph at the top | The co-owner: "the first thing to look at"; worst case "a wild goose chase"; new guardrail: duplicate appointments |
+| What I'd swap to run it at work (Step 8) | [Bring it to work](#bring-it-to-work) | Production TMS user on the broker's server; written AI-provider sign-off; the new intake address |
