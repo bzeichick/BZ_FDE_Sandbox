@@ -70,6 +70,48 @@ def draft_shipment_from_order(order_text: str, received_date: str) -> str:
     return solve(request).model_dump_json()
 
 
+def _tms():
+    """The real TMS client when its settings are present; otherwise the stand-in built from
+    tms_fixture.json. The Docker image and classmates have no TMS login, by design."""
+    import tms_client
+    if tms_client.configured():
+        return tms_client.lookup, tms_client.extract
+    import tms_mock
+    return tms_mock.lookup, tms_mock.extract
+
+
+def _checked(order_text: str, received_date: str, way: str) -> str:
+    """Shared by the two TC5 endpoints: validate like draft_shipment_from_order, then run one implementation."""
+    try:
+        request = Request.model_validate({"order_text": order_text, "received_date": received_date})
+    except ValidationError:
+        return Response(
+            needs_human=True,
+            needs_human_reason="The order text or received date was missing or not a valid date (use YYYY-MM-DD).",
+        ).model_dump_json()
+    lookup, extract = _tms()
+    if way == "pipeline":
+        from existing_loads import solve_with_lookup
+        return solve_with_lookup(request, lookup, extract).model_dump_json()
+    from utcp_tms import solve_with_utcp
+    return solve_with_utcp(request, lookup, extract).model_dump_json()
+
+
+@app.api(name="draft_shipment_checked")
+def draft_shipment_checked(order_text: str, received_date: str) -> str:
+    """TC5 implementation 1, the pipeline: the same draft as draft_shipment_from_order, with code checking the
+    order's reference numbers against loads already in the TMS before and after the model call. A match, or a
+    TMS that can't be reached, sends the order to a person."""
+    return _checked(order_text, received_date, "pipeline")
+
+
+@app.api(name="draft_shipment_utcp")
+def draft_shipment_utcp(order_text: str, received_date: str) -> str:
+    """TC5 implementation 2, UTCP: the model looks loads up itself through the manifest's tools, then the same
+    after-check. Kept for comparison; the pipeline is the chosen design (use_case/decisions.md, Week 5)."""
+    return _checked(order_text, received_date, "utcp")
+
+
 @app.api(name="answer_from_history")
 def answer_from_history(question: str, as_of: str = "") -> str:
     """Answer a question about the freight broker's own shipping history, citing the records used.

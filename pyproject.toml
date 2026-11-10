@@ -9,13 +9,14 @@ dependencies = [
     # their metadata, so a version bump rewrites every mirror in the repo. See
     # CLAUDE.md, "The marimo bump ritual".
     "marimo==0.23.16",
-    "nbformat>=5.10",          # required by `marimo export ipynb`
-    "python-dotenv>=1.2",      # helpers tier 1
-    "litellm>=1.90",           # helpers tier 2
-    "numpy>=2.0",              # from Week 3 on; the from-scratch retrieval math
-    "pillow>=11.0",            # Week 3 S6 reads the charts and keyframes
-    "pydantic>=2",             # Week 1's challenge app and Week 2 S4 import it directly;
-                               # litellm brings it anyway, declared so a litellm change cannot remove it
+    "nbformat>=5.10", # required by `marimo export ipynb`
+    "python-dotenv>=1.2", # helpers tier 1
+    "litellm>=1.90", # helpers tier 2
+    "numpy>=2.0", # from Week 3 on; the from-scratch retrieval math
+    "pillow>=11.0", # Week 3 S6 reads the charts and keyframes
+    "pydantic>=2", # Week 1's challenge app and Week 2 S4 import it directly;
+    # litellm brings it anyway, declared so a litellm change cannot remove it
+    "pysocks>=1.7.1",
 ]
 
 [dependency-groups]
