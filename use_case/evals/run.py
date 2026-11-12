@@ -26,6 +26,7 @@ from harness import SCORERS, bootstrap_ci       # your three scorers (use_case/e
 
 BASELINE = HERE / "baseline.json"
 HEADLINE = "needs_human"          # the costliest mistake (duplicate loads); moved here after the Step 7 rehearsal
+GATE = True                        # --no-gate turns off the shared after-check (TC5 feedback: measure each side alone)
 WATCH = "temperature"             # the top line of failures.md by count (#1, with #3); gated too
 
 CASES = [json.loads(line) for line in open(HERE / "golden.jsonl")]
@@ -53,7 +54,7 @@ def pipeline_endpoint(inp: dict) -> str:
     from schema import Request
     import tms_client
     from existing_loads import solve_with_lookup
-    return solve_with_lookup(Request(**inp), fixture_only(tms_client.lookup), tms_client.extract).model_dump_json()
+    return solve_with_lookup(Request(**inp), fixture_only(tms_client.lookup), tms_client.extract, gate=GATE).model_dump_json()
 
 
 def utcp_endpoint(inp: dict) -> str:
@@ -62,7 +63,7 @@ def utcp_endpoint(inp: dict) -> str:
     from schema import Request
     import tms_client
     from utcp_tms import solve_with_utcp
-    return solve_with_utcp(Request(**inp), fixture_only(tms_client.lookup), tms_client.extract).model_dump_json()
+    return solve_with_utcp(Request(**inp), fixture_only(tms_client.lookup), tms_client.extract, gate=GATE).model_dump_json()
 
 
 SYSTEMS = {
@@ -116,7 +117,11 @@ def main() -> None:
                         help="run implementation 1 (TC5: TMS checks around solve) as the endpoint")
     parser.add_argument("--utcp", action="store_true",
                         help="run implementation 2 (TC5: UTCP tools + after-check) as the endpoint")
+    parser.add_argument("--no-gate", action="store_true",
+                        help="with --pipeline or --utcp: turn off the shared after-check, to measure each side alone")
     args = parser.parse_args()
+    global GATE
+    GATE = not args.no_gate
     if (args.pipeline or args.utcp) and args.save:
         raise SystemExit("don't --save an implementation over the baseline: use --compare")
 
@@ -133,7 +138,8 @@ def main() -> None:
     for name, system in systems.items():
         print(f"running {name} on {len(CASES)} cases...", flush=True)
         meta = {"model": os.getenv("LLM_MODEL"), "goldens": len(CASES)} if name == "endpoint" else None
-        reports[name] = hh.run(CASES, system, scorers, name=("week5-utcp" if args.utcp else "week5-pipeline" if args.pipeline else "week4-baseline") if name == "endpoint" else name, meta=meta)
+        reports[name] = hh.run(CASES, system, scorers, name=(("week5-utcp" if args.utcp else "week5-pipeline" if args.pipeline else "week4-baseline")
+                                                         + ("-nogate" if args.no_gate else "")) if name == "endpoint" else name, meta=meta)
 
     # The Step 2 table, ready to paste into the README.
     labels = list(scorers)
