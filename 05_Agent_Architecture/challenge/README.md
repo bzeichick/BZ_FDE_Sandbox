@@ -718,6 +718,8 @@ The same three goldens through both implementations, one run each, measured by `
 
 **The same comparison on all 21 goldens** (`run.py --pipeline` / `--utcp --compare`): both miss 1 of 9 escalations (golden 14, a load-board tender that no ref check can catch), down from 4 for the draft alone, and both wrongly escalate 1 of 12 (golden 19). The pipeline used 21 model calls and about 164K tokens; UTCP used 46 model calls and about 390K tokens (**2.4×**) for the same accuracy.
 
+**Without the shared after-check** (peer review, 11/12): the model's own finds feed the after-check, so "same accuracy" could have been produced by the gate. Re-run with it off (`run.py --pipeline --no-gate` / `--utcp --no-gate`): both still miss 1 of 9 (golden 14) and wrongly escalate 1 of 12 (golden 19). Each side caught the TMS updates on its own; the after-check never had to fire on these goldens, so its value as a safety net isn't shown by this set.
+
 ## Step 5 — measured again at real response size
 
 The UTCP side reads what the TMS really returns: the whole shipment record. The pipeline trims it in code to a ~300-byte summary.
@@ -748,7 +750,7 @@ The UTCP side reads what the TMS really returns: the whole shipment record. The 
 
 ## Step 6 — the decision
 
-The architecture row is in [`use_case/decisions.md`](../../use_case/decisions.md) (Week 5): **the pipeline for intake**, with UTCP rejected after building and measuring it (same accuracy, 2.2× the model calls, 2.4× the tokens). Switch conditions: MCP when an assistant I didn't build needs the lookup; UTCP or a plain tool if more than 15% of "existing order" emails can't be matched by code after the index is widened (24% today, before widening); Code Mode only if intake becomes an agent and a request needs more than one record read. The Step 1 open question (partial loads) is answered there as still open, with what would close it.
+The architecture row is in [`use_case/decisions.md`](../../use_case/decisions.md) (Week 5): **the pipeline for intake**, with UTCP rejected after building and measuring it (same accuracy with or without the shared after-check, 2.2× the model calls, 2.4× the tokens). Switch conditions: MCP when an assistant I didn't build needs the lookup; a better search (more `REF_RULES`, or substring or lane-and-date search over the index), not UTCP, if more than 15% of "existing order" emails can't be matched by code after the index is widened (24% today, before widening, from production shadow intake; the TMS lookup is exact-match, so UTCP can't match what code can't); Code Mode only if intake becomes an agent and a request needs more than one record read. The Step 1 open question (partial loads) is answered there as still open, with what would close it.
 
 ## Bring it to work
 
@@ -772,7 +774,7 @@ The architecture row is in [`use_case/decisions.md`](../../use_case/decisions.md
 | Both implementations, running; dispatcher failure messages (Step 3) | [Step 3](#step-3--build) | The pipeline (`existing_loads.py`) and UTCP (`utcp_tms.py` + manifest); unknown tools and bad arguments come back as messages |
 | Demo-scale measurement, parallel tool calls (Step 4) | [Step 4](#step-4--both-implementations-measured-at-demo-scale) | Capability calls identical; UTCP 2.1–3.4× the tokens; 3 tool calls in one turn |
 | Real-size row, 10× volume (Step 5) | [Step 5](#step-5--measured-again-at-real-response-size) | One TMS record 8.6–10.2 KB (~4,500 tokens); pipeline ~7,800 vs UTCP ~18,600 tokens per order |
-| Architecture row, switch conditions (Step 6) | [decisions.md](../../use_case/decisions.md) (Week 5) · [Step 6](#step-6--the-decision) | The pipeline; UTCP rejected after building it; switch at 15% unmatched updates, more than 1 record read, or an outside client |
+| Architecture row, switch conditions (Step 6) | [decisions.md](../../use_case/decisions.md) (Week 5) · [Step 6](#step-6--the-decision) | The pipeline; UTCP rejected after building it (same accuracy with the after-check off); a better search past 15% unmatched updates, Code Mode past 1 record read, MCP for an outside client |
 | Still runs in Docker | [Step 5](#step-5--measured-again-at-real-response-size) (last paragraph) · [Dockerfile](../../01_Product_Engineering/challenge/Dockerfile) | Both endpoints in the image, against a stand-in TMS; no TMS login inside |
 | Refined demo shown to a stakeholder (Step 7) | [stakeholders.md](../../use_case/stakeholders.md) (Week 5) · the paragraph at the top | The co-owner: "the first thing to look at"; worst case "a wild goose chase"; new guardrail: duplicate appointments |
 | What I'd swap to run it at work (Step 8) | [Bring it to work](#bring-it-to-work) | Production TMS user on the broker's server; written AI-provider sign-off; the new intake address |

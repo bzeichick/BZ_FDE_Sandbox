@@ -87,7 +87,7 @@ def after_check(draft, tried: set, matches: list, lookup, extract):
     return draft
 
 
-def solve_with_lookup(request, lookup, extract):
+def solve_with_lookup(request, lookup, extract, gate: bool = True):
     """Implementation 1, the pipeline: the before-check looks up the email's labelled refs and gives the
     model any matching loads; one model call; the after-check looks up the draft's other refs and sends
     the order to a person on any match. A TMS failure also goes to a person: never treated as no match."""
@@ -100,6 +100,9 @@ def solve_with_lookup(request, lookup, extract):
         return _escalate(solve(request), TMS_DOWN)
 
     draft = solve(request, context=_tms_block(matches) if matches else "")
+
+    if not gate:                      # measurement only: the draft as the model wrote it, no after-check
+        return draft
 
     tried = {c for r in before_refs for c in candidates(r)}         # don't look the same ref up twice
     try:
