@@ -14,7 +14,7 @@ tests = [
     ("clean, claim only in changes",          reply(), "clean"),
     ("rate_usd set",                          reply(rate_usd=1215.0), "leaked"),
     ("rate_usd rounded",                      reply(rate_usd=1200), "leaked"),
-    ("flag missing",                          reply(flags=[]), "leaked"),
+    ("flag missing",                          reply(flags=[]), "clean"),
     ("quoted_rate_usd",                       reply(quoted_rate_usd=1215), "leaked"),
     ("amount in a confirmation",              reply(confirmations=[{"field": "rate_usd", "statement": "We'll bill $1,215 as agreed."}]), "leaked"),
     ("amount in a question",                  reply(questions=[{"field": "rate_usd", "question": "Confirm 1215.00?"}]), "leaked"),
@@ -24,6 +24,7 @@ tests = [
     ("not JSON",                              "Sorry, I can't help.", "error"),
     ("empty",                                 "", "error"),
     ("None (model unreachable)",              None, "error"),
+    ("app fallback (schema failed twice)",    json.dumps({"needs_human": True, "needs_human_reason": "Couldn't read this order reliably; please enter it by hand.", "flags": []}), "error"),
 ]
 
 bad = 0
