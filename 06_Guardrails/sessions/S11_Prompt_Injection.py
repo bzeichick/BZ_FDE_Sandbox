@@ -532,7 +532,7 @@ def _(mo):
     at all. Yours is the first line of the challenge.
 
     **Answer:**
-
+    Nothing in my prompt is secret: it’s intake rules and a schema, and credentials never enter the model’s context. A customer (or anyone who emails intake) could claim a rate was agreed when it wasn’t, so my canary is: if the only evidence of a rate is the customer saying it was agreed, rate_usd stays empty and RATE_LOOKUP_NEEDED is set. A person approves every order before it reaches the TMS, but today they see the rate without its source, so a forged rate looks like any other. I’ll show the rate with who stated it and the exact words (e.g. “customer: ‘as agreed on our call’”).
     ---
     ## ✅ Task 2: Attack by hand, then search
 
@@ -935,6 +935,17 @@ def _(mo):
     entry on your list would you poison first, and why?
 
     **Answer:**
+    Where untrusted text enters, and who can write there:
+
+    - Email body and subject line: anyone who can email intake@
+    - Quoted thread history: everyone who has ever written in the thread, including colleagues’ earlier replies and forwarded third parties
+    - Attachments (PDFs, scanned BOLs, packing lists): often a third party (the shipper), forwarded by the customer
+    - Images the model reads (appointment screenshots): the receiving facility’s system
+    - From address and sender name: anyone, since it’s easy to fake, and it decides which customer profile is loaded
+    - Customer profiles: built from past emails
+    - TMS records returned by lookups: ops, and anyone else the TMS lets edit a load
+
+    I’d poison an attachment first. It’s often written by a third party, not the customer, so an honest customer forwards it without reading every line, and instructions can be hidden where a person won’t see them but the model will (white text on a white background in a PDF). It has already happened by accident: a shipper’s own “Bill To” field steered the model into the wrong value.
     """)
     return
 
@@ -1125,7 +1136,7 @@ def _(mo):
     what would still have to stay? That remainder is what your output check is
     for, and it is the fix the challenge asks you to prove.
 
-    **Answer:**
+    **Answer:** My prompt has no secret, but it lets the model decide whether a rate was agreed, and that authority can move out tomorrow: the model reports any rate the email states as a claim with who said it, and a person keys the agreed price at approval. In my data the model could only find the agreed price in about a third of booked loads anyway, so removing it costs little. What has to stay is the model reading the customer’s email to fill the other shipment fields and writing the questions and confirmations sent back, so my output check covers those: rate_usd is always empty from the model, and no customer-facing field states a rate as agreed.
 
     ---
     ## ✅ Task 5: The two doors that bypass the chat box
@@ -1367,7 +1378,7 @@ def _(mo):
     and the regression test is the attack that proves it is gone.
 
     **Answer:**
-
+    My app has all three legs: private data (TMS records from lookups and customer profiles), untrusted content (any email and attachment sent to intake@), and a way out (model-written replies to customers and fields written into the TMS). The way out is the cheapest to remove: customer replies come from fixed templates with code-filled values instead of model-written sentences, and the model no longer sets rate_usd; a person keys the agreed rate at the approval step that already reviews every order. The regression test is the forged-rate email: rate_usd stays empty and no customer-facing text states the amount.
     ---
     ## 🏗️ By the End of the Sesh
 

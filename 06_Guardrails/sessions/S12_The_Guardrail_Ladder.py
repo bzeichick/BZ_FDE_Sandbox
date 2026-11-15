@@ -617,6 +617,7 @@ def _(mo):
     row is the top of the ladder table the challenge asks for.
 
     **Answer:**
+    My closed sets are temp_mode, flags, needs_human and the other enum fields of my response schema, and, with the Question #4 fix, the template a customer reply is built from. Today nothing makes values outside them unreachable: the course app validates the JSON after the model writes it, and the production version’s forced tool call still sometimes returns a field as an escaped string. Turning on the provider’s strict structured output (or Ollama’s JSON-schema format for the local model) would close them, but rates, references and free text stay open, which is why the rate moves to a person and the replies move to templates.
 
     ---
     ## ✅ Task 2: Levels 1 and 2 — Rules and a classifier, as rails
@@ -731,7 +732,7 @@ def _(mo):
     that count goes in the challenge's table, next to what the rung catches.
 
     **Answer:**
-
+    I can spell two failures as output rules today: the canary’s shape (ORDERDESK-CANARY-\w+) and any dollar amount in a question or confirmation sent to the customer, and both block 0 of my 21 goldens. The obvious input rule, a claim of agreement like “as we discussed” or “per our call”, blocks 1 of 21: a real order whose rate really was agreed by phone, so it goes in the table as a false positive and the defence stays on the output side. I haven’t measured Level 2 on my goldens yet, because the notebook’s classifier is trained on another app’s examples; that number comes in TC6 with my own labels.
     ---
     ## ✅ Task 3: Level 3 — An LLM judge
 
@@ -876,7 +877,7 @@ def _(mo):
     you to make permanent.
 
     **Answer:**
-
+    The permission rule in my prompt is the rate rule: the model decides whether a rate was “agreed” and may set rate_usd, which is really deciding who may set what the customer is charged. That if belongs to the approval step, where code writes the charge into the TMS only from what the approver enters, until a quote log exists to check against. When a rate is uncertain (a customer claims an agreement no broker message shows), the sales rep who quoted that customer signs, and the co-owner signs when no one quoted it.
     ---
     ## ✅ Task 5: Measure them all
 
@@ -1108,6 +1109,7 @@ def _(mo):
     row.
 
     **Answer:**
+    At about 80–100 emails a day, a one-second judge adds roughly a second to a 6–15 second pipeline nobody waits on, against orders that take hours to complete, so cost and latency don’t rule it out. It still isn’t a guardrail, because when it fires on a legitimate email no one is refused: every order and reply already goes to a person, so a firing judge adds a warning to the approval screen, and a false alarm costs the approver about 30 seconds. Level 3 runs inline on every email, as an evaluator that never blocks.
 
     ---
     ## 🏗️ By the End of the Sesh
