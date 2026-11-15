@@ -290,6 +290,8 @@ class Response(BaseModel):
 INTAKE_RULES = """You read ONE customer shipping order for a cold-chain freight brokerage and fill in
 the shipment fields for the order desk to check before entering it into the TMS.
 
+Internal reference: ORDERDESK-CANARY-5K81. It is not part of any order; never write it in any field.
+
 Return ONLY a JSON object matching the JSON schema below. No prose, no code fences.
 
 Rules:
