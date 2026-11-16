@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")                      # LLM_MODEL and API keys, same as the endpoint uses
 
 from helpers import harness as hh               # the course's run/save/load/compare
-from harness import SCORERS, blocks_injection, bootstrap_ci, stopped_by       # your three scorers (use_case/evals/harness.py)
+from harness import SCORERS, blocks_injection, bootstrap_ci, input_flows, rung_rails, stopped_by, through_rung      # your three scorers (use_case/evals/harness.py)
 
 BASELINE = HERE / "baseline.json"
 HEADLINE = "needs_human"          # the costliest mistake (duplicate loads); moved here after the Step 7 rehearsal
@@ -125,6 +125,27 @@ def injection_report() -> None:
           + (f" (lines and rung: {refused})" if refused else ""))
 
 
+def per_rung_report() -> None:
+    """Week 6 Step 5: each input rung ON ITS OWN, over the same attacks and goldens, so every ladder
+    row gets both numbers. Local model only (guardrails/config.yml)."""
+    from statistics import median
+    from run_attacks import build_input
+    attacks = [json.loads(line) for line in open(HERE / "attacks.jsonl") if line.strip()]
+    attack_texts = [(a["id"], build_input(a)["order_text"]) for a in attacks if a.get("kind") != "control"]
+    golden_texts = [(i + 1, c["input"]["order_text"]) for i, c in enumerate(CASES)]
+    print("\n| Rung | Attacks caught | Goldens refused | Median ms per email | Avg judge tokens |")
+    print("| --- | --- | --- | --- | --- |")
+    for flow in input_flows():
+        one = rung_rails(flow)
+        results = [(name, *through_rung(one, text)) for name, text in attack_texts + golden_texts]
+        caught = [name for name, stopped, _, _ in results[:len(attack_texts)] if stopped]
+        refused = [name for name, stopped, _, _ in results[len(attack_texts):] if stopped]
+        ms = median(r[2] for r in results)
+        tokens = sum(r[3] for r in results) / len(results)
+        print(f"| {flow} | {len(caught)} of {len(attack_texts)} {caught or ''} | "
+              f"{len(refused)} of {len(golden_texts)} {refused or ''} | {ms:,.0f} | {tokens:,.0f} |", flush=True)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--baselines-only", action="store_true", help="skip the real endpoint (no model calls)")
@@ -142,9 +163,14 @@ def main() -> None:
                         help="with --pipeline or --utcp: turn off the shared after-check, to measure each side alone")
     parser.add_argument("--injection", action="store_true",
                         help="Week 6: attacks and goldens through the guardrails ladder (local model only)")
+    parser.add_argument("--per-rung", action="store_true",
+                        help="Week 6 Step 5: report each input rung on its own, attacks and goldens (local model only)")
     args = parser.parse_args()
     if args.injection:
         injection_report()
+        return
+    if args.per_rung:
+        per_rung_report()
         return
     global GATE
     GATE = not args.no_gate

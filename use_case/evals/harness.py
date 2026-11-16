@@ -152,6 +152,45 @@ def blocks_injection(actual: str, case: dict) -> float:
     A rung that errors (judge unreachable) scores 0 here: the test fails rather than passes."""
     return 1.0 if stopped_by(case["input"]["order_text"]) else 0.0
 
+
+import time
+
+
+def input_flows() -> list[str]:
+    """The input rungs listed in guardrails/config.yml, in ladder order."""
+    import yaml
+    return yaml.safe_load((GUARDRAILS / "config.yml").read_text())["rails"]["input"]["flows"]
+
+
+def rung_rails(flow: str):
+    """A rails object with ONLY this input rung switched on (and no output rungs), so each rung is
+    measured on its own: in the full ladder, a cheaper rung that blocks first hides the later ones."""
+    import yaml
+    from nemoguardrails import LLMRails, RailsConfig
+    if str(GUARDRAILS) not in sys.path:
+        sys.path.insert(0, str(GUARDRAILS))
+    import rung_checks
+    config = yaml.safe_load((GUARDRAILS / "config.yml").read_text())
+    config["rails"]["input"]["flows"] = [flow]
+    config["rails"]["output"]["flows"] = []
+    one = LLMRails(RailsConfig.from_content(yaml_content=yaml.safe_dump(config),
+                                            colang_content=(GUARDRAILS / "rails.co").read_text()))
+    one.register_action(rung_checks.classify_input, name="classify_input")
+    one.register_action(rung_checks.check_customer_text, name="check_customer_text")
+    return one
+
+
+def through_rung(one_rung, text: str) -> tuple[bool, float, int]:
+    """One email through one rung: (stopped?, milliseconds, judge prompt tokens)."""
+    options = {**INPUT_ONLY, "log": {"activated_rails": True, "llm_calls": True}}
+    started = time.perf_counter()
+    response = one_rung.generate(messages=[{"role": "user", "content": text}], options=options)
+    ms = (time.perf_counter() - started) * 1000
+    stopped = any(rail.stop for rail in response.log.activated_rails)
+    tokens = sum(call.prompt_tokens or 0 for call in (response.log.llm_calls or []))
+    return stopped, ms, tokens
+
+
 SCORERS = {
     "temperature": temperature_match,
     "silent_gaps": no_silent_gaps,

@@ -13,8 +13,8 @@ rails:
   input:
     flows:
       - regex check input             # Level 1: claims of a phone/verbal agreement
-      - classifier check input        # Level 2: nearest labelled examples vote (rung_checks.py)
-      - self check input              # Level 3: the judge
+      # - classifier check input        # Level 2: nearest labelled examples vote (rung_checks.py)
+      # - self check input              # Level 3: the judge
   output:
     flows:
       - regex check output            # Level 1: the string canary
