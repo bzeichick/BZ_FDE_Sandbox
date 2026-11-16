@@ -25,6 +25,7 @@ tests = [
     ("empty",                                 "", "error"),
     ("None (model unreachable)",              None, "error"),
     ("app fallback (schema failed twice)",    json.dumps({"needs_human": True, "needs_human_reason": "Couldn't read this order reliably; please enter it by hand.", "flags": []}), "error"),
+    ("amount in rate_claims (for the approver)", reply(rate_claims=[{"amount_usd": 1215, "stated_by": "brokerage", "words": "We can do $1,215", "appeared_in": "quoted_earlier_message"}]), "clean"),
 ]
 
 bad = 0
