@@ -108,6 +108,22 @@ never downloaded), and the app reads what has been pulled since the export.
 
 ---
 
+## Week 6 — who can write to what it reads
+
+- Email body and subject line: today, anyone who can get mail into the one co-owner's mailbox the app reads through Microsoft Graph (see Week 3). That includes anyone who emails that co-owner directly, anyone who emails the shared order, dispatch or accounting addresses, and anyone who emails the other co-owner, because copies of all of those land in that mailbox. Go-live plan: a separate intake@ address that only the app reads, so the writer becomes anyone who can email intake@, which means anyone on the internet who has the address.
+- Quoted thread history: everyone who has ever written in the thread, including colleagues’ earlier replies and forwarded third parties
+- Attachments (PDFs, scanned BOLs, packing lists): often a third party (the shipper), forwarded by the customer
+- Images the model reads (appointment screenshots): the receiving facility’s system
+- From address and sender name: anyone, since it’s easy to fake, and it decides which customer profile is loaded
+- Customer profiles (graded app): generated from TMS shipment records (`wiki.py`), not from email. Writer: whoever can write those records, meaning ops and anyone else the TMS lets edit a load (the same writers as the TMS line below). Building profiles from past emails is ColdLade's production plan. If that ships, the writer becomes anyone who ever emailed.
+- Stored history corpus (`answer_from_history` in `01_Product_Engineering/challenge/app.py`: past emails, shipments and attachments): anyone who ever emailed, plus the third parties behind forwarded attachments and the TMS editors behind shipment records. This is a separate source from the live inbound email. A poisoned email from months ago can resurface in a different person's query long after anyone has stopped looking at it.
+- TMS records returned by lookups: ops, and anyone else the TMS lets edit a load
+- Question box (the free-text question passed to `chat()` and `answer_from_history(question=...)`): colleagues signed in with the per-person Nginx passwords (trial), later Microsoft 365 sign-in. Trusted, but it is still an entry point, and anything pasted into it (an email snippet, a customer's text) brings that text's writer along with it.
+
+I’d poison an attachment first. It’s often written by a third party, not the customer, so an honest customer forwards it without reading every line, and instructions can be hidden where a person won’t see them but the model will (white text on a white background in a PDF). It has already happened by accident: a shipper’s own “Bill To” field steered the model into the wrong value.
+
+---
+
 ## Week 9 — the full checklist
 
 <!--

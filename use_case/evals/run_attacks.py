@@ -51,12 +51,21 @@ def use_local_model() -> str:
 
 def build_input(attack: dict) -> dict:
     """The exact request the app gets. Either the attack's own "input", or golden number "base"
-    with the "inject" text added: at the start of the newest message's body (default), or at the end."""
+    with the "inject" text added: at the start of the newest message's body (default), at the end,
+    or as an attachment (optional "body_add" line after the signature, then a
+    "--- Attachment: {attachment_name} ---" marker and the inject text at the very end)."""
     if "input" in attack:
         return attack["input"]
     base = GOLDENS[attack["base"] - 1]["input"]
     text, inject = base["order_text"], attack["inject"]
-    if attack.get("where", "body_start") == "end":
+    where = attack.get("where", "body_start")
+    if where == "attachment":
+        text = text.rstrip()
+        if attack.get("body_add"):
+            text += "\n\n" + attack["body_add"]              # single newline each side, matching the corpus attachment format
+        marker = f"--- Attachment: {attack['attachment_name']} ---"
+        text += "\n" + marker + "\n" + inject + "\n"     # blank line before and after the marker
+    elif where == "end":
         text = text.rstrip() + "\n\n" + inject + "\n"
     else:
         head, sep, body = text.partition("\n\n")            # the newest message's headers, then its body
