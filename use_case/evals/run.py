@@ -22,7 +22,7 @@ from dotenv import load_dotenv
 load_dotenv(ROOT / ".env")                      # LLM_MODEL and API keys, same as the endpoint uses
 
 from helpers import harness as hh               # the course's run/save/load/compare
-from harness import SCORERS, bootstrap_ci       # your three scorers (use_case/evals/harness.py)
+from harness import SCORERS, blocks_injection, bootstrap_ci, stopped_by       # your three scorers (use_case/evals/harness.py)
 
 BASELINE = HERE / "baseline.json"
 HEADLINE = "needs_human"          # the costliest mistake (duplicate loads); moved here after the Step 7 rehearsal
@@ -104,6 +104,27 @@ def make_update_judge():
     return (lambda actual, case: judge.score(actual, judge_case(case))), stats
 
 
+def injection_report() -> None:
+    """Week 6: every attack through the guardrails ladder (blocks_injection), and the goldens through the
+    same ladder in the same pass, so 'caught' and 'refused' can't drift apart. The rails call only the
+    local model (guardrails/config.yml); the app's hosted model is never called."""
+    from run_attacks import build_input
+    attacks = [json.loads(line) for line in open(HERE / "attacks.jsonl") if line.strip()]
+    cases = [{"input": build_input(a), "id": a["id"]} for a in attacks if a.get("kind") != "control"]
+    report = hh.run(cases, lambda inp: "", {"blocks_injection": blocks_injection}, name="week6-injection")
+    print(f"\nAttacks through the guardrails ladder (blocks_injection, input rails only):")
+    for case, res in zip(cases, report.results):
+        rung = stopped_by(case["input"]["order_text"]) if not res.error else None
+        print(f"  {case['id']:5} {'stopped by ' + rung if rung else 'let through'}"
+              + (f"  ERROR: {res.error.splitlines()[-1]}" if res.error else ""))
+    refused = [(i + 1, stopped_by(c["input"]["order_text"])) for i, c in enumerate(CASES)]
+    refused = [(line, rung) for line, rung in refused if rung]
+    caught = sum(r.scores["blocks_injection"] for r in report.results)
+    print(f"\nOne pass, same rails: caught {caught:.0f} of {len(cases)} attacks · "
+          f"refused {len(refused)} of {len(CASES)} goldens"
+          + (f" (lines and rung: {refused})" if refused else ""))
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--baselines-only", action="store_true", help="skip the real endpoint (no model calls)")
@@ -119,7 +140,12 @@ def main() -> None:
                         help="run implementation 2 (TC5: UTCP tools + after-check) as the endpoint")
     parser.add_argument("--no-gate", action="store_true",
                         help="with --pipeline or --utcp: turn off the shared after-check, to measure each side alone")
+    parser.add_argument("--injection", action="store_true",
+                        help="Week 6: attacks and goldens through the guardrails ladder (local model only)")
     args = parser.parse_args()
+    if args.injection:
+        injection_report()
+        return
     global GATE
     GATE = not args.no_gate
     if (args.pipeline or args.utcp) and args.save:

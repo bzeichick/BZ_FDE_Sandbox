@@ -31,6 +31,7 @@ rails:
 prompts:
   - task: self_check_input
     max_tokens: 2048
+    max_length: 64000
     content: |
       You are a safety check for a freight broker's order-intake system. It reads
       customer emails and drafts orders for the order desk to review.
