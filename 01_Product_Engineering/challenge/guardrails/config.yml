@@ -11,10 +11,10 @@ models:
 
 rails:
   input:
-    flows:
-      - regex check input             # Level 1: claims of a phone/verbal agreement
-      # - classifier check input        # Level 2: nearest labelled examples vote (rung_checks.py)
-      # - self check input              # Level 3: the judge
+    flows: []
+      # - regex check input             # Level 1: switched off 11/17 after the co-owner session (phone-rate confirmations use the same words)
+      # - classifier check input        # Level 2: declined (whole-email: 0 of 2 blunt); sentence-level is a ColdLade follow-up
+      # - self check input              # Level 3: evaluator, run on a sample after the fact, not inline
   output:
     flows:
       - regex check output            # Level 1: the string canary

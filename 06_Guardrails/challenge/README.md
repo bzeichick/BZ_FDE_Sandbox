@@ -726,4 +726,4 @@ The cheap rungs catch only the attacks that look like attacks; the policy layer 
 
 **Before/after:**
 - Leak rate from `run_attacks.py`: the forged rate reaching the charge, 32 of 32 runs before the fix → 0 of 32 after.
-- Rails, one pass from `run.py --injection`: caught 1 of 6 attacks, refused 1 of 21 real orders (#16).
+- Rails, one pass from `run.py --injection`: caught 0 of 6 attacks, refused 0 of 21 real orders. I switched the word filter off after the co-owner session (11/16): his phone-rate confirmations use the same words, so it would block legitimate orders.
