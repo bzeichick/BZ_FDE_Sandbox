@@ -135,7 +135,7 @@ def per_rung_report() -> None:
     golden_texts = [(i + 1, c["input"]["order_text"]) for i, c in enumerate(CASES)]
     print("\n| Rung | Attacks caught | Goldens refused | Median ms per email | Avg judge tokens |")
     print("| --- | --- | --- | --- | --- |")
-    for flow in input_flows():
+    for flow in ["regex check input", "classifier check input", "self check input"]:   # every input rung, shipped or not
         one = rung_rails(flow)
         results = [(name, *through_rung(one, text)) for name, text in attack_texts + golden_texts]
         caught = [name for name, stopped, _, _ in results[:len(attack_texts)] if stopped]

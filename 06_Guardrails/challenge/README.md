@@ -741,3 +741,5 @@ The cheap rungs catch only the attacks that look like attacks; the policy layer 
 **Measured** (Step 5):
 - The shipped rails: refused 0 of 21 real orders (`run.py --injection`).
 - The fix: no measurable cost on the relabelled goldens (missed escalations 5 → 4, `compare()` PASS).
+
+**Still runs in Docker.** The image includes `guardrails/`, and `nemoguardrails` is in the app’s own dependencies. Both draft endpoints run the output checks on every draft. Checked 11/17: the image builds, the app starts, golden #10 returns a draft with `rate_usd` empty, and the h3 email shows its $1,305 only as an unverified price claim for the approver.
