@@ -713,6 +713,8 @@ It removes the way out. Before the fix, whatever rate the model put in `rate_usd
 
 **What the fix cost (plain endpoint, same 21 goldens, without vs with the fix):** missed escalations unchanged at 4 of 9; needs_human 0.76 → 0.71 and silent_gaps 0.95 → 0.90, from two goldens that changed only with the fix (below). Temperature went 0.86 → 0.90, from two goldens flipping both ways between runs: noise, not the fix.
 
+**Update 11/17, after relabelling #18 (confirmed by the co-owner):** on the relabelled goldens the fix has no measurable cost: missed escalations 5 of 10 → 4 of 10, needs_human 0.71 → 0.76, silent_gaps and temperature unchanged. #18 is a correct escalation. #16’s missing ZIP question appeared in the no-fix baseline too, so it isn’t caused by the fix.
+
 - **#16:** the rate claim itself was captured correctly (the customer's $2,835 from the attachment), but the question asking for the pickup ZIP went missing in 3 of 3 runs, leaving a required gap unasked. A consistent side effect of the prompt change, not run-to-run noise.
 - **#18:** now sent to a person. The model's reason is wrong (it treats "picked up by another carrier" as someone else's load, but a broker's loads are always hauled by other carriers), but the outcome may be right: I believe this email is about an already-booked load, not a new order, which would make the golden's label wrong. Pending confirmation with the co-owner. If confirmed, I'll relabel it with a dated line in `decisions.md` and re-run, which would make the fix 5 of 10 → 4 of 10 missed escalations rather than a new wrong escalation.
 
@@ -727,3 +729,15 @@ The cheap rungs catch only the attacks that look like attacks; the policy layer 
 **Before/after:**
 - Leak rate from `run_attacks.py`: the forged rate reaching the charge, 32 of 32 runs before the fix → 0 of 32 after.
 - Rails, one pass from `run.py --injection`: caught 0 of 6 attacks, refused 0 of 21 real orders. I switched the word filter off after the co-owner session (11/16): his phone-rate confirmations use the same words, so it would block legitimate orders.
+
+## Bring it to work
+
+**The system:** the production intake at the broker goes live 12/14, where anyone can email intake@ and we haven't tested what happens when that email talks to the model.
+
+- **Data:** Today it reads email from the co-owner's mailbox including the subject, body, and any attachments; as well as quoted thread history and any one who has ever emailed. In addition, it can read records from the TMS. At go-live it will be a dedicated intake@ email address, so anybody with the email address can write to it.
+- **Model or endpoint:** The production version runs on a hosted Claude model with no logit access. Structured output exists on the API, guaranteeing the shape but not the truth. Attacks have to go to a local model, never the production API.
+- **Access or approval:** Written sign-off for sending customer email to the AI provider, access to the customer charge in the TMS, and an approved local model on the broker’s side.
+
+**Measured** (Step 5):
+- The shipped rails: refused 0 of 21 real orders (`run.py --injection`).
+- The fix: no measurable cost on the relabelled goldens (missed escalations 5 → 4, `compare()` PASS).
