@@ -27,6 +27,7 @@ COPY llm.py app.py schema.py corpus.py retrieval.py wiki.py \
      existing_loads.py tms_client.py tms_mock.py utcp_tms.py tools.py \
      tms_utcp_manifest.json tms_fixture.json ./
 COPY corpus/ ./corpus/
+COPY guardrails/ ./guardrails/
 COPY frontend/ ./frontend/
 
 # Don't run as root. Your security review will ask about this.

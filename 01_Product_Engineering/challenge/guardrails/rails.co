@@ -1,0 +1,11 @@
+define subflow classifier check input
+  $allowed = execute classify_input(text=$user_message)
+  if not $allowed
+    bot refuse to respond
+    stop
+
+define subflow customer text check output
+  $allowed = execute check_customer_text(text=$bot_message)
+  if not $allowed
+    bot refuse to respond
+    stop

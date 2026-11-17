@@ -73,7 +73,7 @@ what the email changes in changes. When you have finished looking things up, rep
 """
 
 
-def solve_with_utcp(request, lookup, extract, meter=None, max_rounds: int = 8):
+def solve_with_utcp(request, lookup, extract, meter=None, max_rounds: int = 8, gate: bool = True):
     """Implementation 2: the same rules and contract as solve(), but the model looks loads up itself through
     the manifest's tools. Then the same after-check as the pipeline. A TMS failure during the loop sends the
     order to a person (Decision 2), whatever the model concluded."""
@@ -116,6 +116,9 @@ def solve_with_utcp(request, lookup, extract, meter=None, max_rounds: int = 8):
         draft = Response(needs_human=True, needs_human_reason="Couldn't read this order reliably; please enter it by hand.")
     if log["failures"]:
         return _escalate(draft, TMS_DOWN)
+
+    if not gate:                      # measurement only: what the model decided, no after-check
+        return draft
 
     matches = [{"oid": oid, "matched_ref": ref, "shipment_id": None}
                for ref, oids in log["found"].items() for oid in oids]

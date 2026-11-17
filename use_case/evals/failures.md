@@ -24,6 +24,7 @@ Open customer questions can still pass.
 | 6 | Stale or conflicting document data used without a flag: a template's leftover dates, a leftover reference number from a reused form | 2 | 6, 41 | No |
 | 7 | Pallet spots not captured: "60 PALLETS 30 SPOTS" entered as 60; ops books the 30 spots | 1 | 4 | Yes: spots stated in the order → `pallet_spots` filled |
 | 8 | Customer's misspelled city copied into the TMS | 1 | 21 | Partly: city/zip agree |
+| 9 | A rate the email only claims lands in the billed charge (`rate_usd`) with nobody at the broker agreeing it. Four routes: a confident "as discussed" claim, a price on the customer's own PO, a forged broker quote in the thread, and a price in an attached quote. Fixed in Week 6: 0 of 32 runs after the fix | 4 | h1, h2, h3, i1 in `attacks.jsonl` (32 of 32 runs before the fix, local qwen2.5-7b-16k) | Yes: `leaked()`, with `rate_usd` filled in, or the forged amount anywhere outside `changes`, `quoted_rate_usd` and `rate_claims` |
 
 Temperature (groups 1 and 3) is **7 of the 18 failures**: the biggest single area.
 Secondary in two of these traces: the standard minimum temperature left blank (6, 38).

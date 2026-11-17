@@ -18,6 +18,27 @@ from llm import stream_reply
 from retrieval import answer_history, coverage
 from schema import HistoryAnswer, HistoryQuestion, Request, Response, solve
 
+import re
+import sys
+
+sys.path.insert(0, str(Path(__file__).parent / "guardrails"))
+from rung_checks import customer_text_ok  # noqa: E402  (guardrails/ is a folder, not a package)
+
+CANARY = re.compile(r"ORDERDESK-CANARY-\w+")
+
+
+def _output_rails(draft: Response) -> str:
+    """Week 6 output rungs: the same two checks as guardrails/config.yml's output flows, run on every
+    draft the app returns. If one fires, the draft goes to a person instead of coming back as ready."""
+    text = draft.model_dump_json()
+    reason = ("internal reference text appeared in the draft" if CANARY.search(text)
+              else "a dollar amount appeared in text going to the customer" if not customer_text_ok(text)
+              else None)
+    if reason:
+        draft.needs_human = True
+        draft.needs_human_reason = f"Output check: {reason}. Please review before anything is sent or entered."
+    return draft.model_dump_json()
+
 app = Server()
 
 FRONTEND = Path(__file__).parent / "frontend" / "index.html"
@@ -67,7 +88,7 @@ def draft_shipment_from_order(order_text: str, received_date: str) -> str:
             needs_human=True,
             needs_human_reason="The order text or received date was missing or not a valid date (use YYYY-MM-DD).",
         ).model_dump_json()
-    return solve(request).model_dump_json()
+    return _output_rails(solve(request))
 
 
 def _tms():
@@ -81,7 +102,7 @@ def _tms():
 
 
 def _checked(order_text: str, received_date: str, way: str) -> str:
-    """Shared by the two TC5 endpoints: validate like draft_shipment_from_order, then run one implementation."""
+    """Used by the TC5 endpoint: validate like draft_shipment_from_order, then run one implementation."""
     try:
         request = Request.model_validate({"order_text": order_text, "received_date": received_date})
     except ValidationError:
@@ -92,9 +113,8 @@ def _checked(order_text: str, received_date: str, way: str) -> str:
     lookup, extract = _tms()
     if way == "pipeline":
         from existing_loads import solve_with_lookup
-        return solve_with_lookup(request, lookup, extract).model_dump_json()
-    from utcp_tms import solve_with_utcp
-    return solve_with_utcp(request, lookup, extract).model_dump_json()
+        return _output_rails(solve_with_lookup(request, lookup, extract))
+    raise ValueError(f"unknown implementation: {way}")
 
 
 @app.api(name="draft_shipment_checked")
@@ -103,13 +123,6 @@ def draft_shipment_checked(order_text: str, received_date: str) -> str:
     order's reference numbers against loads already in the TMS before and after the model call. A match, or a
     TMS that can't be reached, sends the order to a person."""
     return _checked(order_text, received_date, "pipeline")
-
-
-@app.api(name="draft_shipment_utcp")
-def draft_shipment_utcp(order_text: str, received_date: str) -> str:
-    """TC5 implementation 2, UTCP: the model looks loads up itself through the manifest's tools, then the same
-    after-check. Kept for comparison; the pipeline is the chosen design (use_case/decisions.md, Week 5)."""
-    return _checked(order_text, received_date, "utcp")
 
 
 @app.api(name="answer_from_history")
