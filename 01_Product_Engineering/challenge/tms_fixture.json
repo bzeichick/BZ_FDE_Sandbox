@@ -28,6 +28,27 @@
      "shipper": {"name": "FDE Test Shipper", "street": "100 Test Way", "city": "Dallas", "state": "TX", "zip": "75042"},
      "consignee": {"name": "NFS Northgate Jacksonville, Inc.", "street": "1 Test Plaza", "city": "Jacksonville", "state": "FL", "zip": "32254"},
      "pickup": "2026-10-26", "delivery": "2026-10-28", "temp_min_f": -10, "temp_max_f": 0,
-     "pallets": 10, "cases": 800, "weight_lb": 12000, "description": "Frozen food"}
+     "pallets": 10, "cases": 800, "weight_lb": 12000, "description": "Frozen food"},
+    {"golden": 22, "intake_id": "CL-FDE-22-1",
+     "why": "Pickup change for a load already entered: the load has the PO only, and the email's PO has no label next to it (pasted table), so only the after-check finds it. Assumes the SO wasn't on the load yet",
+     "refs": [["Customer PO", "ZZFDE22PO1"]],
+     "shipper": {"name": "Harbor Cold", "street": "100 Test Way", "city": "Los Angeles", "state": "CA", "zip": "90021"},
+     "consignee": {"name": "Southshore Foodservice", "street": "1 Test Plaza", "city": "Lexington", "state": "SC", "zip": "29072"},
+     "pickup": "2026-11-06", "delivery": "2026-11-12", "temp_min_f": -10, "temp_max_f": 0,
+     "pallets": 6, "cases": 480, "weight_lb": 9154, "description": "Frozen food"},
+    {"golden": 23, "intake_id": "CL-FDE-23-1",
+     "why": "Appointment question on a load already entered: the email's refs are bare numbers in the subject with no label",
+     "refs": [["Customer PO", "ZZFDE23PO1"], ["Pickup Reference Number", "ZZFDE23SO1"]],
+     "shipper": {"name": "FDE Test Cold Storage", "street": "100 Test Way", "city": "Vernon", "state": "CA", "zip": "90058"},
+     "consignee": {"name": "Pricewise", "street": "1 Test Plaza", "city": "Tolleson", "state": "AZ", "zip": "85353"},
+     "pickup": "2026-11-02", "delivery": "2026-11-03", "temp_min_f": -10, "temp_max_f": 0,
+     "pallets": 20, "cases": 1600, "weight_lb": 24000, "description": "Frozen food"},
+    {"golden": 24, "intake_id": "CL-FDE-24-1",
+     "why": "Pickup appointment request for a load already entered: the only ref is the shipper's order number in its own form (I-SO style), no label",
+     "refs": [["Customer PO", "ZZFDE24PO1"], ["Pickup Reference Number", "ZZFDEI-SO24001"]],
+     "shipper": {"name": "Harbor Lane Foods", "street": "100 Test Way", "city": "Los Angeles", "state": "CA", "zip": "90011"},
+     "consignee": {"name": "Southshore Foods - Boca Raton", "street": "1 Test Plaza", "city": "Boca Raton", "state": "FL", "zip": "33487"},
+     "pickup": "2026-11-06", "delivery": "2026-11-12", "temp_min_f": -10, "temp_max_f": 0,
+     "pallets": 8, "cases": 640, "weight_lb": 10000, "description": "Frozen food"}
   ]
 }

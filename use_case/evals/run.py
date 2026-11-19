@@ -159,6 +159,8 @@ def main() -> None:
                         help="run implementation 1 (TC5: TMS checks around solve) as the endpoint")
     parser.add_argument("--utcp", action="store_true",
                         help="run implementation 2 (TC5: UTCP tools + after-check) as the endpoint")
+    parser.add_argument("--out", metavar="NAME",
+                        help="also save this endpoint run to use_case/evals/runs/NAME.json, so the numbers can be checked later")
     parser.add_argument("--no-gate", action="store_true",
                         help="with --pipeline or --utcp: turn off the shared after-check, to measure each side alone")
     parser.add_argument("--injection", action="store_true",
@@ -222,6 +224,12 @@ def main() -> None:
         esc = escalation_counts(rep)
         print(f"\nEscalation: missed {len(esc['missed'])} of {esc['need']} that needed a person (lines {esc['missed']});"
               f" escalated wrongly {len(esc['false'])} of {esc['no_need']} (lines {esc['false']})")
+
+    if args.out and "endpoint" in reports:
+        out = HERE / "runs" / f"{args.out}.json"
+        out.parent.mkdir(exist_ok=True)
+        hh.save(reports["endpoint"], out)
+        print(f"\nSaved this run to {out.relative_to(ROOT)}")
 
     if args.save or args.compare:
         if "endpoint" not in reports:

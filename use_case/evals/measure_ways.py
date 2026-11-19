@@ -76,6 +76,7 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--goldens", default="2,15,17", help="golden line numbers, comma-separated")
     parser.add_argument("--runs", type=int, default=1, help="repeat each measurement this many times")
+    parser.add_argument("--no-gate", action="store_true", help="turn off the shared after-check on both sides")
     parser.add_argument("--request", help="a text file holding one order email (e.g. a synthetic request); "
                                           "measured instead of the goldens, expected to need a person")
     parser.add_argument("--received", default="2026-11-09", help="received date for --request")
@@ -101,7 +102,7 @@ def main() -> None:
                 extract = counted(tms_client.extract, tally, "extract", sizes)
                 meter.reset()
                 started = time.perf_counter()
-                result = solve_fn(request, lookup, extract)
+                result = solve_fn(request, lookup, extract, gate=not args.no_gate)
                 seconds = time.perf_counter() - started
                 settle(meter)
                 rows.append({
