@@ -599,7 +599,7 @@ The co-founder forwarded the 20 orders to the sales director and to an operation
 
 ## Bring it to work
 
-**The project:** I now have two years of real US Perishables orders from a co-founder's mailbox that's copied on every emailed order, but I can't backtest ColdLade on them: the emails are the inputs, and the correct answers — what the order desk actually entered — live in the TMS, which I can't yet query or export. Until they're matched, real orders are prototyping data, the same as these 531 synthetic rows. Orders placed through the website form never reach that mailbox, so they're missing entirely.
+**The project:** I now have two years of real orders from a co-founder's mailbox that's copied on every emailed order, but I can't backtest ColdLade on them: the emails are the inputs, and the correct answers — what the order desk actually entered — live in the TMS, which I can't yet query or export. Until they're matched, real orders are prototyping data, the same as these 531 synthetic rows. Orders placed through the website form never reach that mailbox, so they're missing entirely.
 
 **What I would swap to run this at work**
 

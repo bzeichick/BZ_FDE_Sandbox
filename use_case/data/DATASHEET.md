@@ -16,7 +16,7 @@
 | Combinations | 552 (540 enterable + 12 route-to-person) |
 | Generated | 553 (one correction combination returned 2 rows) |
 | After dedupe (character 4-gram Jaccard 0.7 on the input) | 553 — 0 dropped |
-| Schema-valid | 551 — 2 rejected for temperature modes "dry" and "ambient". Step 6 showed US Perishables does move dry freight, so the schema was stricter than real orders; "dry" is added in Week 3 |
+| Schema-valid | 551 — 2 rejected for temperature modes "dry" and "ambient". Step 6 showed the freight broker does move dry freight, so the schema was stricter than real orders; "dry" is added in Week 3 |
 | Dead combinations | 0 — 2 replies were unparseable on the first attempt; both combinations recovered on retry |
 | Removed after reading 50 rows | 20 - see "What I removed" below | 
 | **Final** | **531** | 
