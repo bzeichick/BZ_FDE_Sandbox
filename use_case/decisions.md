@@ -88,7 +88,7 @@ TC4 feedback (11/03), from instructors and peers. Marks: **Fair** (a real gap, f
   | 23 | right 3/3 | right 3/3 | right 3/3 | right 3/3 |
   | 24 | right 3/3 | right 3/3 | right 3/3 | right 3/3 |
 
-  On 22, the before-check looked up the labelled SO (not on the load) and the model read "please load this order" as a new one: the production mistake again. The after-check looked up the PO the model pulled out and found the load. On 23 and 24 the emails say themselves that they aren't new orders. Tokens per order on these emails: pipeline about 7,500, UTCP about 27,600 (3.7×). Baseline re-saved on 24 goldens: missed 5 of 12, wrongly escalated 1 of 12.
+  On 22, the before-check looked up the labelled SO (not on the load) and the model read "please load this order" as a new one: the production mistake again. The after-check looked up the PO the model pulled out and found the load. On 23 and 24 the emails say themselves that they aren't new orders. Tokens per order on these emails: pipeline about 7,500, UTCP about 27,600 (3.7×). Baseline re-saved on 24 goldens: missed 5 of 12, wrongly escalated 1 of 12. After the merge into Week 6 (golden 18 relabelled as needing a person), re-saved again: missed 5 of 13, wrongly escalated 1 of 11.
 
 ---
 
